@@ -217,3 +217,8 @@ export interface CheckoutDeliveryProps {
   onSubmit?: (data: CheckoutFormData) => void;
   onApplyPromo?: (code: string) => void;
 }
+
+export interface RegisterSellerDto {
+  shopName: string;
+  phone: string;
+}

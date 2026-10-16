@@ -25,18 +25,18 @@ export default function CartPage() {
       });
   }, [cart]);
 
-  if (!isAuthenticated) {
-    return (
-      <div className={styles.page}>
-        <Header />
-        <div className={styles.empty}>
-          <div className={styles.emptyIcon}>🛒</div>
-          <h2>Увійдіть, щоб переглянути кошик</h2>
-          <Link to="/login" className={styles.loginBtn}>Увійти</Link>
-        </div>
-      </div>
-    );
-  }
+  // if (!isAuthenticated) {
+  //   return (
+  //     <div className={styles.page}>
+  //       <Header />
+  //       <div className={styles.empty}>
+  //         <div className={styles.emptyIcon}>🛒</div>
+  //         <h2>Увійдіть, щоб переглянути кошик</h2>
+  //         <Link to="/login" className={styles.loginBtn}>Увійти</Link>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const total = cart?.items?.reduce((s, i) => s + i.unitPrice * i.quantity, 0) ?? 0;
 

@@ -23,6 +23,7 @@ export default function Header({ full = true }: HeaderProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -35,14 +36,48 @@ export default function Header({ full = true }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // блокируем прокрутку страницы, пока открыто мобильное меню
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) navigate(`/catalog?q=${encodeURIComponent(query)}`);
   };
 
+  const goTo = (path: string) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.topBar}>
+        {full && (
+          <button
+            type="button"
+            className={styles.burger}
+            onClick={() => setMenuOpen(true)}
+            aria-label="Відкрити меню категорій"
+            aria-expanded={menuOpen}
+          >
+            <span className={styles.burgerLine} />
+            <span className={styles.burgerLine} />
+            <span className={styles.burgerLine} />
+          </button>
+        )}
+
         <Link to="/" className={styles.logo}>
           <img src={logoImg} alt="BlitzMall" className={styles.logoImg} />
         </Link>
@@ -51,13 +86,14 @@ export default function Header({ full = true }: HeaderProps) {
           <form className={styles.searchWrap} onSubmit={handleSearch}>
             <input
               className={styles.searchInput}
-              type="text"
+              type="search"
+              enterKeyHint="search"
               placeholder="Шукайте що завгодно"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <button type="submit" className={styles.searchBtn}>
-              <img src={searchIcon} alt="Пошук" />
+            <button type="submit" className={styles.searchBtn} aria-label="Пошук">
+              <img src={searchIcon} alt="" />
             </button>
           </form>
         )}
@@ -127,6 +163,52 @@ export default function Header({ full = true }: HeaderProps) {
             ))}
           </div>
         </nav>
+      )}
+
+      {/* Мобильное меню категорий */}
+      {full && menuOpen && (
+        <div className={styles.drawerOverlay} onClick={() => setMenuOpen(false)}>
+          <aside
+            className={styles.drawer}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Категорії"
+          >
+            <div className={styles.drawerHead}>
+              <img src={logoImg} alt="BlitzMall" className={styles.drawerLogo} />
+              <button
+                type="button"
+                className={styles.drawerClose}
+                onClick={() => setMenuOpen(false)}
+                aria-label="Закрити меню"
+              >
+                ✕
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={styles.drawerAll}
+              onClick={() => goTo('/categories')}
+            >
+              {ALL_CATEGORIES.name}
+            </button>
+
+            <ul className={styles.drawerList}>
+              {CATEGORIES.map((cat) => (
+                <li key={cat.id}>
+                  <button
+                    type="button"
+                    className={styles.drawerItem}
+                    onClick={() => goTo(`/catalog?categoryId=${cat.backendId}`)}
+                  >
+                    {cat.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        </div>
       )}
     </header>
   );

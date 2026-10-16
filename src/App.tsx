@@ -18,6 +18,29 @@ import { AllProductsPage } from './pages/AllProductsPage/AllProductsPage';
 import Delivery from './pages/Delivery/Delivery';
 import Payment from './pages/Payment/Payment';
 import { OrderVerification } from './pages/OrderVerification/OrderVerification';
+import SellerRegisterPage  from './pages/SellerRegisterPage/SellerRegisterPage'
+import SellerDashboardPage from './pages/SellerDashboardPage/SellerDashboardPage';
+import SellerVerificationPage from './pages/Sellerverificationpage/Sellerverificationpage';
+import SellerProductsPage from './pages/Sellerproductspage/Sellerproductspage';
+import SellerOrdersPage from './pages/Sellerorderspage/Sellerorderspage';
+import SellerReturnsPage from './pages/Sellerreturnspage/Sellerreturnspage';
+import SellerStockPage from './pages/Sellerstockpage/Sellerstockpage';
+import SellerCrmPage from './pages/Sellercrmpage/Sellercrmpage';
+import SellerAnalyticsPage from './pages/Selleranalyticspage/Selleranalyticspage';
+import SellerFinancePage from './pages/SellerFinancePage/SellerFinancePage';
+import SellerAdsPage from './pages/SellerAdsPage/SellerAdsPage';
+import SellerReviewsPage from './pages/SellerReviewsPage/SellerReviewsPage';
+import AdminDashboardPage from './pages/Admindashboardpage/Admindashboardpage';
+import AdminUsersPage from './pages/Adminuserspage/Adminuserspage';
+import AdminSellersPage from './pages/Adminsellerspage/Adminsellerspage';
+import AdminModerationPage from './pages/Adminmoderationpage/Adminmoderationpag';
+ import AdminCategoriesPage from './pages/AdminCategoriesPage/AdminCategoriesPage';
+ import AdminAdsPage from './pages/AdminAdsPage/AdminAdsPage';
+import AdminFinancePage from './pages/AdminFinancePage/AdminFinancePage';
+import AdminDisputesPage from './pages/AdminDisputesPage/AdminDisputesPage';
+import AdminIntegrationsPage from './pages/AdminIntegrationsPage/AdminIntegrationsPage';
+import AdminSecurityPage from './pages/AdminSecurityPage/AdminSecurityPage';
+
 
 export default function App() {
   return (
@@ -43,6 +66,28 @@ export default function App() {
             <Route path="/payment"               element={<Payment />} />
             <Route path="/order-verification"    element={<OrderVerification />} />
             <Route path="*"                      element={<Navigate to="/" replace />} />
+            <Route path="/register-seller" element={<SellerRegisterPage />} />
+            <Route path="/seller" element={<SellerDashboardPage />} />
+            <Route path="/seller/verification" element={<SellerVerificationPage />} />
+            <Route path="/seller/products" element={<SellerProductsPage />} />
+            <Route path="/seller/orders" element={<SellerOrdersPage />} />
+            <Route path="/seller/returns" element={<SellerReturnsPage />} />
+            <Route path="/seller/stock" element={<SellerStockPage />} />
+            <Route path="/seller/crm" element={<SellerCrmPage />} />
+            <Route path="/seller/analytics" element={<SellerAnalyticsPage />} />
+            <Route path="/seller/finance" element={<SellerFinancePage />} />
+            <Route path="/seller/ads" element={<SellerAdsPage />} />
+            <Route path="/seller/reviews" element={<SellerReviewsPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/sellers" element={<AdminSellersPage />} />
+             <Route path="/admin/moderation" element={<AdminModerationPage />} />
+             <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+             <Route path="/admin/ads" element={<AdminAdsPage />} />
+             <Route path="/admin/finance" element={<AdminFinancePage />} />
+             <Route path="/admin/disputes" element={<AdminDisputesPage />} />
+             <Route path="/admin/integrations" element={<AdminIntegrationsPage />} />
+             <Route path="/admin/security" element={<AdminSecurityPage />} />
           </Routes>
         </CartProvider>
       </AuthProvider>

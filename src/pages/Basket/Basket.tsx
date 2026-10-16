@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styles from './Basket.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
+import { useAuth } from '../../context/AuthContext';
+import EmptyCart, { pluralGoods } from './Emptycart';
 import type { CartItem, Product } from '../../types/index'; 
 import type {BasketProps} from '../../types/index';
 
@@ -50,6 +53,7 @@ export default function Basket({
   onAddToCart,
   onCheckout,
 }: BasketProps) {
+  const { isAuthenticated } = useAuth();
   const [promo, setPromo] = useState('');
   const [useBonuses, setUseBonuses] = useState(false);
 
@@ -57,6 +61,20 @@ export default function Basket({
   const count = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const discount = useBonuses ? Math.min(bonuses, goods) : 0;
   const total = goods - discount;
+  const isEmpty = cartItems.length === 0;
+
+  // // Проверка входа: неавторизованный не видит ни корзину, ни заглушку
+  // if (!isAuthenticated) {
+  //   return (
+  //     <>
+  //       <Header />
+  //       <div style={{ maxWidth: 600, margin: '80px auto', textAlign: 'center' }}>
+  //         <h2>Увійдіть, щоб переглянути кошик</h2>
+  //         <Link to="/login">Увійти</Link>
+  //       </div>
+  //     </>
+  //   );
+  // }
 
   return (
     <>
@@ -70,9 +88,12 @@ export default function Basket({
         </nav>
 
         <div className={styles.cartHead}>
-          <h1 className={styles.cartTitle}>Кошик&nbsp; {count} товари</h1>
+          <h1 className={styles.cartTitle}>Кошик&nbsp; {count} {pluralGoods(count)}</h1>
         </div>
 
+        {isEmpty ? (
+          <EmptyCart />
+        ) : (
         <div className={styles.cartBody}>
           <section className={`${styles.cartCard} ${styles.cartItems}`} aria-label="Товари в кошику">
             {cartItems.map((item) => {
@@ -215,6 +236,7 @@ export default function Basket({
           </section>
           )}
         </div>
+        )}
       </main>
 
       <Footer />

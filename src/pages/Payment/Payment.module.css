@@ -7,6 +7,18 @@
   display: block;
 }
 
+.hiddenRadio {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pageWrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
 .checkoutPage {
   --green-900: #1f5e3b;
@@ -17,6 +29,7 @@
   --text: #1a1a1a;
   --muted: #555;
 
+  flex: 1;
   max-width: 1980px;
   margin: 0 auto;
   font-family: "Montserrat", system-ui, sans-serif;
@@ -89,10 +102,11 @@
   color: var(--green-700);
 }
 
-/* layout */
+/* layout: форма 900px, по центру зелёного блока */
 .body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(340px, 32%, 520px);
+  grid-template-columns: minmax(0, 900px) clamp(320px, 28vw, 400px);
+  justify-content: center;
   gap: 32px;
   align-items: start;
   padding: 32px clamp(20px, 3vw, 40px) 48px;
@@ -115,22 +129,19 @@
   font-size: 28px;
   font-weight: 700;
 }
-.fieldRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
 .field {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 22px;
+  min-width: 0;
 }
 .field label {
   font-size: 18px;
   font-weight: 600;
 }
 .field input {
+  width: 100%;
+  box-sizing: border-box;
   height: 58px;
   padding: 0 18px;
   border: 1px solid var(--line);
@@ -146,18 +157,20 @@
   outline-offset: 1px;
 }
 
-.methodsLabel {
-  margin: 8px 0 14px;
-  font-size: 18px;
-  font-weight: 600;
-}
+/* способы оплаты */
 .methods {
   display: flex;
   flex-direction: column;
   gap: 14px;
   margin-bottom: 26px;
 }
+.methodBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
 .method {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -192,29 +205,59 @@
   background: var(--green-700);
 }
 .methodName {
+  display: block;
   font-size: 19px;
   font-weight: 700;
 }
 .methodMeta {
+  display: block;
   font-size: 16px;
   color: var(--muted);
 }
 
-.addressField textarea,
-.addressField input {
-  width: 100%;
-  min-height: 58px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  font-size: 18px;
-  color: var(--text);
-  resize: vertical;
+/* данные карты: сразу под «Банківська карта» */
+.cardFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 110px;
+  gap: 16px;
+  padding: 4px 4px 10px;
+}
+.cardNameField {
+  grid-column: 1 / -1;
 }
 
-.submit {
-  width: 100%;
+@media (max-width: 600px) {
+  .cardFields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cardFields > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* кнопки: Назад + Далі в одном ряду */
+.actions {
+  display: flex;
+  gap: 16px;
   margin-top: 12px;
+}
+.back {
+  flex: none;
+  padding: 0 32px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.back:hover {
+  border-color: var(--green-700);
+  color: var(--green-700);
+}
+.submit {
+  flex: 1;
   padding: 22px;
   border: 0;
   border-radius: 14px;
@@ -286,38 +329,15 @@
   background: var(--green-900);
 }
 
-.commentCard {
-  margin-top: 24px;
-  padding: 28px clamp(20px, 3vw, 40px) 32px;
-}
-.commentCard h2 {
-  margin: 0 0 18px;
-  font-size: 24px;
-  font-weight: 700;
-}
-.commentCard textarea {
-  width: 100%;
-  min-height: 220px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  font-size: 17px;
-  color: var(--text);
-  resize: vertical;
-}
-.commentCard textarea::placeholder {
-  color: #9aa39a;
-}
-
 .checkoutPage :focus-visible {
   outline: 3px solid var(--green-600);
   outline-offset: 2px;
 }
 
 /* responsive */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .body {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 900px);
   }
 }
 @media (max-width: 700px) {
@@ -338,13 +358,8 @@
     gap: 20px;
   }
   .form,
-  .summary,
-  .commentCard {
+  .summary {
     padding: 20px;
-  }
-  .fieldRow {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
   .formTitle {
     font-size: 24px;

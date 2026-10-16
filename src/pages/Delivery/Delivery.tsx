@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import styles from './Delivery.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
@@ -15,6 +15,13 @@ const defaultDeliveryMethods: DeliveryMethod[] = [
   { id: 'ukrposhta', name: 'Укрпошта', eta: '4-5 дні', price: 45 },
   { id: 'courier', name: "Кур'єр", eta: 'сьогодні до 21.00', price: 95 },
   { id: 'pickup', name: 'Самовивіз', eta: '1-2 дні', price: 0 },
+];
+
+// ВАЖЛИВО: підстав свої реальні адреси магазинів
+const pickupPoints = [
+  { id: 'khreshchatyk', address: 'вул. Хрещатик, 1, Київ' },
+  { id: 'obolon', address: 'пр. Оболонський, 12, Київ' },
+  { id: 'lisova', address: 'пр. Лісовий, 25, Київ' },
 ];
 
 export default function Delivery(props: CheckoutDeliveryProps) {
@@ -50,20 +57,29 @@ export default function Delivery(props: CheckoutDeliveryProps) {
   const isCourier = deliveryMethodId === 'courier';
   const isPickup = deliveryMethodId === 'pickup';
   const isWarehouseCarrier = isNovaPoshta || isUkrposhta;
-  const needsCity = !isPickup;
-  const needsAddress = !isPickup;
-  const addressLabel = isWarehouseCarrier ? 'Відділення / Поштомат' : 'Адреса';
+  const needsCity = true;
+
+  const addressLabel = isPickup
+    ? 'Оберіть адресу'
+    : isCourier
+      ? 'Вкажіть адресу доставки'
+      : 'Відділення / Поштомат';
+
   const cityBoxRef = useRef<HTMLDivElement>(null);
   const addressBoxRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
       if (cityBoxRef.current && !cityBoxRef.current.contains(e.target as Node)) setCityOpen(false);
       if (addressBoxRef.current && !addressBoxRef.current.contains(e.target as Node)) setWarehouseOpen(false);
     };
     document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
   }, []);
 
   const handleCityChange = (value: string) => {
@@ -122,8 +138,12 @@ export default function Delivery(props: CheckoutDeliveryProps) {
     if (!phone.trim()) errs.phone = 'Вкажіть номер телефону';
     if (needsCity && !city.trim()) errs.city = 'Вкажіть місто';
     if (needsCity && isNovaPoshta && !cityRef) errs.city = 'Оберіть місто зі списку';
-    if (needsAddress && !address.trim()) {
-      errs.address = isWarehouseCarrier ? 'Вкажіть відділення або поштомат' : 'Вкажіть адресу';
+    if (!address.trim()) {
+      errs.address = isPickup
+        ? 'Оберіть адресу самовивозу'
+        : isWarehouseCarrier
+          ? 'Вкажіть відділення або поштомат'
+          : 'Вкажіть адресу доставки';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -159,9 +179,9 @@ export default function Delivery(props: CheckoutDeliveryProps) {
 
       <main className={styles.checkoutPage}>
         <nav className={styles.crumbs} aria-label="Навігація">
-          <a href="/">Головна</a>
+          <Link to="/">Головна</Link>
           <span>/</span>
-          <a href="/cart">Кошик</a>
+          <Link to="/cart">Кошик</Link>
           <span>/</span>
           <span>Оформлення замовлення</span>
         </nav>
@@ -191,6 +211,7 @@ export default function Delivery(props: CheckoutDeliveryProps) {
                   id="firstName"
                   type="text"
                   placeholder="Ваше ім'я"
+                  autoComplete="given-name"
                   value={firstName}
                   onChange={(e) => { setFirstName(e.target.value); setErrors((prev) => ({ ...prev, firstName: undefined })); }}
                 />
@@ -202,6 +223,7 @@ export default function Delivery(props: CheckoutDeliveryProps) {
                   id="lastName"
                   type="text"
                   placeholder="Ваше прізвище"
+                  autoComplete="family-name"
                   value={lastName}
                   onChange={(e) => { setLastName(e.target.value); setErrors((prev) => ({ ...prev, lastName: undefined })); }}
                 />
@@ -214,6 +236,8 @@ export default function Delivery(props: CheckoutDeliveryProps) {
               <input
                 id="phone"
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 placeholder="+380 XX XXX XX XX"
                 value={phone}
                 onChange={(e) => { setPhone(e.target.value); setErrors((prev) => ({ ...prev, phone: undefined })); }}
@@ -222,7 +246,7 @@ export default function Delivery(props: CheckoutDeliveryProps) {
             </div>
 
             {needsCity && (
-              <div className={styles.field} ref={cityBoxRef} style={{ position: 'relative' }}>
+              <div className={`${styles.field} ${styles.relative}`} ref={cityBoxRef}>
                 <label htmlFor="city">Місто</label>
                 <input
                   id="city"
@@ -260,28 +284,49 @@ export default function Delivery(props: CheckoutDeliveryProps) {
                       name="deliveryMethod"
                       value={method.id}
                       checked={selected}
+                      className={styles.hiddenRadio}
                       onChange={() => {
                         setDeliveryMethodId(method.id);
                         setCityRef('');
                         setAddress('');
                         setErrors((prev) => ({ ...prev, city: undefined, address: undefined }));
                       }}
-                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
                     />
                     <span className={styles.radio} aria-hidden="true" />
-                    <span>
-                      <div className={styles.methodName}>{method.name}</div>
-                      <div className={styles.methodMeta}>
+                    <span className={styles.methodText}>
+                      <span className={styles.methodName}>{method.name}</span>
+                      <span className={styles.methodMeta}>
                         {method.eta} {method.price > 0 ? `${fmt(method.price)} ${UAH}` : 'безкоштовно'}
-                      </div>
+                      </span>
                     </span>
                   </label>
                 );
               })}
             </div>
 
-            {needsAddress && (
-              <div className={`${styles.field} ${styles.addressField}`} ref={addressBoxRef} style={{ position: 'relative' }}>
+            {isPickup ? (
+              <div className={styles.field}>
+                <label htmlFor="pickupAddress">{addressLabel}</label>
+                <div className={styles.selectWrap}>
+                  <select
+                    id="pickupAddress"
+                    className={styles.select}
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setErrors((prev) => ({ ...prev, address: undefined }));
+                    }}
+                  >
+                    <option value="" disabled>Оберіть адресу магазину</option>
+                    {pickupPoints.map((p) => (
+                      <option key={p.id} value={p.address}>{p.address}</option>
+                    ))}
+                  </select>
+                </div>
+                {errors.address && <span className={styles.err}>{errors.address}</span>}
+              </div>
+            ) : (
+              <div className={`${styles.field} ${styles.addressField} ${styles.relative}`} ref={addressBoxRef}>
                 <label htmlFor="address">{addressLabel}</label>
                 <input
                   id="address"
@@ -291,7 +336,7 @@ export default function Delivery(props: CheckoutDeliveryProps) {
                       ? (cityRef ? 'Оберіть або знайдіть відділення...' : 'Спочатку оберіть місто зі списку')
                       : isUkrposhta
                         ? 'Відділення або поштомат Укрпошти'
-                        : '№1 вул. Хрещатик, 1'
+                        : 'Вулиця, будинок, квартира'
                   }
                   value={address}
                   disabled={isNovaPoshta && !cityRef}
@@ -323,9 +368,7 @@ export default function Delivery(props: CheckoutDeliveryProps) {
 
               <div className={styles.row}>
                 <span>Товари ({itemsCount})</span>
-                <span>
-                  {fmt(goodsTotal)} {UAH}
-                </span>
+                <span>{fmt(goodsTotal)} {UAH}</span>
               </div>
               <div className={styles.row}>
                 <span>Доставка</span>
@@ -337,15 +380,15 @@ export default function Delivery(props: CheckoutDeliveryProps) {
               </div>
               <div className={`${styles.row} ${styles.rowTotal}`}>
                 <span>До сплати</span>
-                <span>
-                  {fmt(total)} {UAH}
-                </span>
+                <span>{fmt(total)} {UAH}</span>
               </div>
 
               <div className={styles.promo}>
                 <input
                   type="text"
                   placeholder="Промокод"
+                  autoCapitalize="characters"
+                  autoComplete="off"
                   value={promo}
                   onChange={(e) => setPromo(e.target.value)}
                 />

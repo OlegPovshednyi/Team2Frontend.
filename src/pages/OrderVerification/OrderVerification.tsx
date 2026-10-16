@@ -16,7 +16,6 @@ export function OrderVerification() {
   const { clearCart } = useCart();
   const state = (location.state ?? {}) as PaymentNavState;
 
-  const [promo, setPromo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [orderDone, setOrderDone] = useState(false);
@@ -27,11 +26,7 @@ export function OrderVerification() {
   const {
     paymentMethodName = 'Банківська карта',
     items = [],
-    itemsCount = 0,
-    goodsTotal = 0,
-    deliveryPrice = 0,
     deliveryLabel = '—',
-    cashback = 0,
     total = 0,
     phone = '',
     address = '',
@@ -74,23 +69,21 @@ export function OrderVerification() {
     }
   };
 
-  const handleApplyPromo = () => {
-    console.log('promo code:', promo);
-  };
-
   if (orderDone) {
     return (
       <div className={styles.pageWrapper}>
         <Header />
         <main className={styles.checkoutPage}>
-          <div className={styles.card} style={{ padding: 40, textAlign: 'center' }}>
-            <h1 className={styles.formTitle}>Замовлення оформлено!</h1>
-            <p>
-              Дякуємо за покупку! Сума <strong>{fmt(total)} {UAH}</strong> прийнята в обробку.
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20 }}>
-              <Link to="/profile" className={styles.submit}>Мої замовлення</Link>
-              <Link to="/" className={styles.back}>На головну</Link>
+          <div className={styles.body}>
+            <div className={`${styles.card} ${styles.doneCard}`}>
+              <h1 className={styles.formTitle}>Замовлення оформлено!</h1>
+              <p className={styles.doneText}>
+                Дякуємо за покупку! Сума <strong>{fmt(total)} {UAH}</strong> прийнята в обробку.
+              </p>
+              <div className={styles.actions}>
+                <Link to="/" className={styles.back}>На головну</Link>
+                <Link to="/profile" className={styles.submit}>Мої замовлення</Link>
+              </div>
             </div>
           </div>
         </main>
@@ -136,7 +129,7 @@ export function OrderVerification() {
                 <div>
                   <div className={styles.productName}>{item.name}</div>
                   <div className={styles.productMeta}>
-                    {item.variant} · {item.qty} шт · {item.brand}
+                    {item.variant} {item.qty} шт {item.brand}
                   </div>
                 </div>
                 <div className={styles.productPrice}>
@@ -152,7 +145,7 @@ export function OrderVerification() {
               <dd>{paymentMethodName}</dd>
             </dl>
 
-            {orderError && <p style={{ color: '#d62d2d' }}>{orderError}</p>}
+            {orderError && <p className={styles.orderError}>{orderError}</p>}
 
             <div className={styles.actions}>
               <button type="button" className={styles.back} onClick={handleBack}>
@@ -168,43 +161,6 @@ export function OrderVerification() {
               </button>
             </div>
           </section>
-
-          <aside className={`${styles.card} ${styles.summary}`}>
-            <h2>Разом</h2>
-
-            <div className={styles.row}>
-              <span>Товари ({itemsCount})</span>
-              <span>
-                {fmt(goodsTotal ?? 0)} {UAH}
-              </span>
-            </div>
-            <div className={styles.row}>
-              <span>Доставка</span>
-              <span>{deliveryPrice && deliveryPrice > 0 ? `${fmt(deliveryPrice)} ${UAH}` : 'безкоштовно'}</span>
-            </div>
-            <div className={`${styles.row} ${styles.rowCashback}`}>
-              <span>Кешбек</span>
-              <span>+ {cashback ?? 0} бонусів</span>
-            </div>
-            <div className={`${styles.row} ${styles.rowTotal}`}>
-              <span>До сплати</span>
-              <span>
-                {fmt(total ?? 0)} {UAH}
-              </span>
-            </div>
-
-            <div className={styles.promo}>
-              <input
-                type="text"
-                placeholder="Промокод"
-                value={promo}
-                onChange={(e) => setPromo(e.target.value)}
-              />
-              <button type="button" onClick={handleApplyPromo}>
-                Ок
-              </button>
-            </div>
-          </aside>
         </div>
       </main>
 

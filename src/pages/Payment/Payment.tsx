@@ -159,79 +159,79 @@ export default function Payment({
               {paymentMethods.map((method) => {
                 const selected = method.id === paymentMethodId;
                 return (
-                  <label
-                    key={method.id}
-                    className={`${styles.method} ${selected ? styles.methodSelected : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method.id}
-                      checked={selected}
-                      onChange={() => setPaymentMethodId(method.id)}
-                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span className={styles.radio} aria-hidden="true" />
-                    <span>
-                      <div className={styles.methodName}>{method.name}</div>
-                      <div className={styles.methodMeta}>{method.description}</div>
-                    </span>
-                  </label>
+                  <div key={method.id} className={styles.methodBlock}>
+                    <label className={`${styles.method} ${selected ? styles.methodSelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={method.id}
+                        checked={selected}
+                        className={styles.hiddenRadio}
+                        onChange={() => setPaymentMethodId(method.id)}
+                      />
+                      <span className={styles.radio} aria-hidden="true" />
+                      <span>
+                        <span className={styles.methodName}>{method.name}</span>
+                        <span className={styles.methodMeta}>{method.description}</span>
+                      </span>
+                    </label>
+
+                    {/* Дані картки одразу під «Банківська карта» */}
+                    {selected && method.requiresCard && (
+                      <div className={styles.cardFields}>
+                        <div className={styles.field}>
+                          <label htmlFor="cardNumber">Номер картки</label>
+                          <input
+                            id="cardNumber"
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0000 0000 0000 0000"
+                            value={cardNumber}
+                            onChange={handleCardNumberChange}
+                          />
+                          {errors.cardNumber && <span className={styles.err}>{errors.cardNumber}</span>}
+                        </div>
+                        <div className={styles.field}>
+                          <label htmlFor="cardExpiry">Термін дії</label>
+                          <input
+                            id="cardExpiry"
+                            type="text"
+                            placeholder="MM / YY"
+                            value={cardExpiry}
+                            onChange={handleExpiryChange}
+                          />
+                          {errors.cardExpiry && <span className={styles.err}>{errors.cardExpiry}</span>}
+                        </div>
+                        <div className={styles.field}>
+                          <label htmlFor="cardCvv">CVV</label>
+                          <input
+                            id="cardCvv"
+                            type="password"
+                            inputMode="numeric"
+                            placeholder="•••"
+                            maxLength={4}
+                            value={cardCvv}
+                            onChange={handleCvvChange}
+                          />
+                          {errors.cardCvv && <span className={styles.err}>{errors.cardCvv}</span>}
+                        </div>
+                        <div className={`${styles.field} ${styles.cardNameField}`}>
+                          <label htmlFor="cardName">Ім'я власника</label>
+                          <input
+                            id="cardName"
+                            type="text"
+                            placeholder="IVAN PETRENKO"
+                            value={cardName}
+                            onChange={(e) => { setCardName(e.target.value); setErrors((prev) => ({ ...prev, cardName: undefined })); }}
+                          />
+                          {errors.cardName && <span className={styles.err}>{errors.cardName}</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
-
-            {needsCardFields && (
-              <div className={styles.cardFields}>
-                <div className={styles.field}>
-                  <label htmlFor="cardNumber">Номер картки</label>
-                  <input
-                    id="cardNumber"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="0000 0000 0000 0000"
-                    value={cardNumber}
-                    onChange={handleCardNumberChange}
-                  />
-                  {errors.cardNumber && <span className={styles.err}>{errors.cardNumber}</span>}
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="cardName">Ім'я власника</label>
-                  <input
-                    id="cardName"
-                    type="text"
-                    placeholder="IVAN PETRENKO"
-                    value={cardName}
-                    onChange={(e) => { setCardName(e.target.value); setErrors((prev) => ({ ...prev, cardName: undefined })); }}
-                  />
-                  {errors.cardName && <span className={styles.err}>{errors.cardName}</span>}
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="cardExpiry">Термін дії</label>
-                  <input
-                    id="cardExpiry"
-                    type="text"
-                    placeholder="MM / YY"
-                    value={cardExpiry}
-                    onChange={handleExpiryChange}
-                  />
-                  {errors.cardExpiry && <span className={styles.err}>{errors.cardExpiry}</span>}
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="cardCvv">CVV</label>
-                  <input
-                    id="cardCvv"
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="•••"
-                    maxLength={4}
-                    value={cardCvv}
-                    onChange={handleCvvChange}
-                  />
-                  {errors.cardCvv && <span className={styles.err}>{errors.cardCvv}</span>}
-                </div>
-              </div>
-            )}
 
             <div className={styles.actions}>
               <button

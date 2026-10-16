@@ -134,7 +134,10 @@ export default function CheckoutPage() {
 
   const handleDeliveryNext = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateDelivery()) setStep('payment');
+    if (validateDelivery()) {
+      setStep('payment');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const buildDeliveryAddress = () => {
@@ -227,13 +230,17 @@ export default function CheckoutPage() {
                   <div className={styles.field}>
                     <label className={styles.label}>Ім'я</label>
                     <input className={`${styles.input} ${errors.firstName ? styles.inputErr : ''}`}
-                      placeholder="Ваше ім'я" value={delivery.firstName} onChange={setDeliveryField('firstName')} />
+                      placeholder="Ваше ім'я" value={delivery.firstName}
+                      onChange={setDeliveryField('firstName')}
+                      autoComplete="given-name" />
                     {errors.firstName && <span className={styles.err}>{errors.firstName}</span>}
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Прізвище</label>
                     <input className={`${styles.input} ${errors.lastName ? styles.inputErr : ''}`}
-                      placeholder="Ваше прізвище" value={delivery.lastName} onChange={setDeliveryField('lastName')} />
+                      placeholder="Ваше прізвище" value={delivery.lastName}
+                      onChange={setDeliveryField('lastName')}
+                      autoComplete="family-name" />
                     {errors.lastName && <span className={styles.err}>{errors.lastName}</span>}
                   </div>
                 </div>
@@ -241,7 +248,8 @@ export default function CheckoutPage() {
                 <div className={styles.field}>
                   <label className={styles.label}>Номер телефону</label>
                   <input className={`${styles.input} ${errors.phone ? styles.inputErr : ''}`}
-                    placeholder="+380 XX XXX XX XX" type="tel" value={delivery.phone} onChange={setDeliveryField('phone')} />
+                    placeholder="+380 XX XXX XX XX" type="tel" inputMode="tel" autoComplete="tel"
+                    value={delivery.phone} onChange={setDeliveryField('phone')} />
                   {errors.phone && <span className={styles.err}>{errors.phone}</span>}
                 </div>
 
@@ -281,28 +289,36 @@ export default function CheckoutPage() {
                 <div className={styles.field}>
                   <label className={styles.label}>Номер картки</label>
                   <input className={`${styles.input} ${errors.cardNumber ? styles.inputErr : ''}`}
-                    placeholder="0000 0000 0000 0000" value={payment.cardNumber} onChange={setPaymentField('cardNumber')} />
+                    placeholder="0000 0000 0000 0000" value={payment.cardNumber}
+                    onChange={setPaymentField('cardNumber')}
+                    inputMode="numeric" autoComplete="cc-number" />
                   {errors.cardNumber && <span className={styles.err}>{errors.cardNumber}</span>}
                 </div>
 
                 <div className={styles.field}>
                   <label className={styles.label}>Ім'я власника</label>
                   <input className={`${styles.input} ${errors.cardName ? styles.inputErr : ''}`}
-                    placeholder="IVAN PETRENKO" value={payment.cardName} onChange={setPaymentField('cardName')} />
+                    placeholder="IVAN PETRENKO" value={payment.cardName}
+                    onChange={setPaymentField('cardName')}
+                    autoComplete="cc-name" autoCapitalize="characters" />
                   {errors.cardName && <span className={styles.err}>{errors.cardName}</span>}
                 </div>
 
-                <div className={styles.row2}>
+                <div className={`${styles.row2} ${styles.cardRow}`}>
                   <div className={styles.field}>
                     <label className={styles.label}>Термін дії</label>
                     <input className={`${styles.input} ${errors.expiry ? styles.inputErr : ''}`}
-                      placeholder="MM/YY" value={payment.expiry} onChange={setPaymentField('expiry')} />
+                      placeholder="MM/YY" value={payment.expiry}
+                      onChange={setPaymentField('expiry')}
+                      inputMode="numeric" autoComplete="cc-exp" />
                     {errors.expiry && <span className={styles.err}>{errors.expiry}</span>}
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>CVV</label>
                     <input className={`${styles.input} ${errors.cvv ? styles.inputErr : ''}`}
-                      placeholder="•••" type="password" value={payment.cvv} onChange={setPaymentField('cvv')} />
+                      placeholder="•••" type="password" value={payment.cvv}
+                      onChange={setPaymentField('cvv')}
+                      inputMode="numeric" autoComplete="cc-csc" />
                     {errors.cvv && <span className={styles.err}>{errors.cvv}</span>}
                   </div>
                 </div>

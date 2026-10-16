@@ -390,6 +390,13 @@ export default function RegisterPage() {
                   <Link to="/login">Увійти</Link>
                 </span>
               </div>
+
+              <div className={styles.accountLink}>
+                <span className={styles.accountLinkText}>
+                  Хочете продавати?{' '}
+                  <Link to="/register-seller">Реєстрація продавця</Link>
+                </span>
+              </div>
             </div>
           </div>
         </div>

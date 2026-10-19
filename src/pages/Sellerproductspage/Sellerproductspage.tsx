@@ -1,48 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './SellerProductsPage.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SellerSidebar from '../../components/Sellersidebar/Sellersidebar';
+import { sellersApi } from '../../api/sellers';
+import { productsApi } from '../../api/products';
+import type { Product } from '../../types';
 
-type ProductStatus = 'active' | 'moderation' | 'hidden' | 'out';
-
-interface Product {
-  id: number;
-  name: string;
-  image?: string; // путь к картинке; если нет — покажется заглушка
-  category: string;
-  price: number;
-  stock: number;
-  rating: number;
-  status: ProductStatus;
-}
-
-const STATUS_LABEL: Record<ProductStatus, string> = {
+const STATUS_LABEL = {
   active: 'Активний',
-  moderation: 'На модерації',
   hidden: 'Прихований',
   out: 'Закінчився',
 };
 
-const STATUS_CLASS: Record<ProductStatus, string> = {
+const STATUS_CLASS: Record<string, string> = {
   active: styles.statusActive,
-  moderation: styles.statusModeration,
   hidden: styles.statusHidden,
   out: styles.statusOut,
 };
 
-// TODO(бэк): заменить моки на данные с сервера (запрос с номером страницы)
-// TODO: подставить реальные картинки в поле image
-const PRODUCTS: Product[] = [
-  { id: 1, name: 'Бездротові навушники', category: 'Електроніка', price: 1972, stock: 15, rating: 4.6, status: 'active' },
-  { id: 2, name: 'Бездротові навушники', category: 'Електроніка', price: 1190, stock: 8, rating: 3.2, status: 'active' },
-  { id: 3, name: 'LED лампа', category: 'Електроніка', price: 290, stock: 5, rating: 3.4, status: 'active' },
-  { id: 4, name: 'Ноутбук ігровий', category: 'Електроніка', price: 52390, stock: 1, rating: 5.0, status: 'active' },
-  { id: 5, name: 'Ноутбук ігровий', category: 'Електроніка', price: 52390, stock: 4, rating: 4.8, status: 'active' },
-];
-const TOTAL_PAGES = 100; // TODO(бэк): приходит с сервера
+function statusOf(p: Product): keyof typeof STATUS_LABEL {
+  if (!p.isActive) return 'hidden';
+  if ((p.quantity ?? 0) <= 0) return 'out';
+  return 'active';
+}
+
+const PAGE_SIZE = 12;
 
 const priceFormat = new Intl.NumberFormat('uk-UA');
 
@@ -65,13 +50,40 @@ const ImageIcon = () => (
 export default function SellerProductsPage() {
   const { user } = useAuth();
   const [page, setPage] = useState(1);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [sellerId, setSellerId] = useState<number | null>(null);
 
-  if (!user || user.role !== 'seller') {
+  useEffect(() => {
+    if (!user || user.role !== 'Seller') return;
+    sellersApi.getMine(user.email).then((seller) => {
+      if (!seller) {
+        setLoading(false);
+        return;
+      }
+      setSellerId(seller.id);
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (sellerId == null) return;
+    setLoading(true);
+    productsApi
+      .search({ sellerId, page, pageSize: PAGE_SIZE })
+      .then((res) => {
+        setProducts(res.items);
+        setTotalPages(res.totalPages || 1);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [sellerId, page]);
+
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 
   const handleEdit = (id: number) => {
-    // TODO: открыть страницу/модалку редактирования товара (макета пока нет)
     void id;
   };
 
@@ -102,45 +114,50 @@ export default function SellerProductsPage() {
                 <span className={styles.srOnly} role="columnheader">Дії</span>
               </div>
 
-              {/* ── Строки ── */}
-              {PRODUCTS.map((p) => (
-                <div key={p.id} className={styles.row} role="row">
-                  <div className={styles.cellProduct} role="cell">
-                    <div className={styles.thumb}>
-                      {p.image ? <img src={p.image} alt="" loading="lazy" /> : <ImageIcon />}
+              {loading ? (
+                <p style={{ padding: 20 }}>Завантаження...</p>
+              ) : products.length === 0 ? (
+                <p style={{ padding: 20 }}>У вас ще немає товарів.</p>
+              ) : (
+                products.map((p) => (
+                  <div key={p.id} className={styles.row} role="row">
+                    <div className={styles.cellProduct} role="cell">
+                      <div className={styles.thumb}>
+                        {p.imageUrl ? <img src={p.imageUrl} alt="" loading="lazy" /> : <ImageIcon />}
+                      </div>
+                      <span className={styles.name}>{p.name}</span>
                     </div>
-                    <span className={styles.name}>{p.name}</span>
-                  </div>
 
-                  <div className={`${styles.cell} ${styles.cellCategory}`} role="cell" data-label="Категорія">
-                    {p.category}
-                  </div>
-                  <div className={`${styles.cell} ${styles.cellStrong}`} role="cell" data-label="Ціна">
-                    {priceFormat.format(p.price)} ₴
-                  </div>
-                  <div className={`${styles.cell} ${styles.cellStrong}`} role="cell" data-label="Залишок">
-                    {p.stock}
-                  </div>
-                  <div className={`${styles.cell} ${styles.cellRating}`} role="cell" data-label="Рейтинг">
-                    {p.rating.toFixed(1)} <span aria-hidden="true">★</span>
-                  </div>
+                    <div className={`${styles.cell} ${styles.cellCategory}`} role="cell" data-label="Категорія">
+                      {p.categoryName ?? '—'}
+                    </div>
+                    <div className={`${styles.cell} ${styles.cellStrong}`} role="cell" data-label="Ціна">
+                      {priceFormat.format(p.price)} ₴
+                    </div>
+                    <div className={`${styles.cell} ${styles.cellStrong}`} role="cell" data-label="Залишок">
+                      {p.quantity ?? 0}
+                    </div>
+                    <div className={`${styles.cell} ${styles.cellRating}`} role="cell" data-label="Рейтинг">
+                      {p.rating != null ? p.rating.toFixed(1) : '—'} <span aria-hidden="true">★</span>
+                    </div>
 
-                  <div className={`${styles.cell} ${styles.cellStatus}`} role="cell">
-                    <span className={`${styles.status} ${STATUS_CLASS[p.status]}`}>{STATUS_LABEL[p.status]}</span>
-                  </div>
+                    <div className={`${styles.cell} ${styles.cellStatus}`} role="cell">
+                      <span className={`${styles.status} ${STATUS_CLASS[statusOf(p)]}`}>{STATUS_LABEL[statusOf(p)]}</span>
+                    </div>
 
-                  <div className={`${styles.cell} ${styles.cellEdit}`} role="cell">
-                    <button type="button" className={styles.editBtn} onClick={() => handleEdit(p.id)}>
-                      Редагувати
-                    </button>
+                    <div className={`${styles.cell} ${styles.cellEdit}`} role="cell">
+                      <button type="button" className={styles.editBtn} onClick={() => handleEdit(p.id)}>
+                        Редагувати
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* ── Пагинация ── */}
             <nav className={styles.pagination} aria-label="Сторінки каталогу">
-              {getPageItems(page, TOTAL_PAGES).map((item) =>
+              {getPageItems(page, totalPages).map((item) =>
                 typeof item === 'number' ? (
                   <button
                     key={item}

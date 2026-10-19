@@ -449,7 +449,7 @@ export default function SellerVerificationPage() {
   const [bank, setBank] = useState<BankData>(INITIAL_BANK);
   const [modal, setModal] = useState<ModalType>(null);
 
-  if (!user || user.role !== 'seller') {
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 

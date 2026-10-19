@@ -352,3 +352,34 @@
     padding: 16px;
   }
 }
+.summary h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+.row { display: flex; justify-content: space-between; font-size: 15px; padding: 8px 0; }
+.rowTotal {
+  font-weight: 700;
+  font-size: 17px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 16px;
+}
+.rowCashback { color: var(--green); }
+.promo { display: flex; gap: 10px; margin-top: 20px; }
+.promo input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+}
+.promo button {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.summary {
+  margin-top: 24px;
+}

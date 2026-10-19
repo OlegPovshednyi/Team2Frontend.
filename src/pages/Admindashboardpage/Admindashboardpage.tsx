@@ -1,29 +1,25 @@
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import AdminSidebar from '../../components/Adminsidebar/Adminsidebar';
+import { paymentsApi, type Payment } from '../../api/payments';
+import { ordersApi } from '../../api/orders';
+import { sellersApi } from '../../api/sellers';
+import { productsApi } from '../../api/products';
+import { categoriesApi } from '../../api/categories';
+import type { Product } from '../../types';
 import styles from './Admindashboardpage.module.css';
-
-// TODO: поставить false, когда появится бэкенд (или удалить флажок вместе с DEV_USER)
-const DEV_SKIP_AUTH = true;
-const DEV_USER = { name: 'Тест Адмін', role: 'admin' };
-
-interface Stat {
-  title: string;
-  value: string;
-  note: string;
-  positive: boolean;
-}
 
 interface MonthGmv {
   month: string;
-  gmv: number; // в тысячах гривен
+  gmv: number;
 }
 
 interface CategoryShare {
   name: string;
-  percent: number; // доля оборота, %
+  percent: number;
 }
 
 interface Task {
@@ -31,40 +27,8 @@ interface Task {
   title: string;
   subtitle: string;
   to: string;
-  soon?: boolean; // страницы ещё нет — пункт неактивен
+  soon?: boolean;
 }
-
-// TODO(бэк): заменить моки на данные с сервера
-const STATS: Stat[] = [
-  { title: 'GMV за 30 днів', value: '4 820 000 ₴', note: '+18,2 %', positive: true },
-  { title: 'Замовлень', value: '9 412', note: '+6,4%', positive: true },
-  { title: 'Активних продавців', value: '284', note: '+12', positive: true },
-  { title: 'Дохід з комісій', value: '414 500 ₴', note: '+14,1%', positive: true },
-];
-
-const GMV_BY_MONTH: MonthGmv[] = [
-  { month: 'Березень', gmv: 2900 },
-  { month: 'Квітень', gmv: 3250 },
-  { month: 'Травень', gmv: 3410 },
-  { month: 'Червень', gmv: 3880 },
-  { month: 'Липень', gmv: 4210 },
-  { month: 'Серпень', gmv: 4820 },
-];
-
-const CATEGORIES: CategoryShare[] = [
-  { name: 'Електроніка', percent: 42 },
-  { name: 'Дім і кухня', percent: 26 },
-  { name: 'Одяг і взуття', percent: 14 },
-  { name: 'Спорт', percent: 10 },
-  { name: 'Інші', percent: 8 },
-];
-
-// TODO(бэк): тексты и количество приходят с сервера. Уберите soon, когда появится страница «Спори»
-const TASKS: Task[] = [
-  { id: 1, title: 'Модернізація товарів', subtitle: '3 товари очікують перевірки', to: '/admin/moderation' },
-  { id: 2, title: 'Спори', subtitle: '2 відкриті спори', to: '/admin/disputes', soon: true },
-  { id: 3, title: 'Продавці', subtitle: '1 магазин на верифікації', to: '/admin/sellers' },
-];
 
 const ChevronIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -73,15 +37,74 @@ const ChevronIcon = () => (
 );
 
 export default function AdminDashboardPage() {
-  const { user: authUser } = useAuth();
-  const user = DEV_SKIP_AUTH ? DEV_USER : authUser;
+  const { user } = useAuth();
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [sellersCount, setSellersCount] = useState(0);
+  const [pendingProducts, setPendingProducts] = useState(0);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categoryNames, setCategoryNames] = useState<Record<number, string>>({});
 
-  // Пускаем только администратора
-  if (!user || user.role !== 'admin') {
+  useEffect(() => {
+    if (!user || user.role !== 'Admin') return;
+    Promise.all([
+      paymentsApi.getAll().catch(() => []),
+      ordersApi.getAll().catch(() => []),
+      sellersApi.getAll().catch(() => []),
+      productsApi.getAll().catch(() => []),
+      categoriesApi.getAll().catch(() => []),
+    ]).then(([pay, orders, sellers, allProducts, cats]) => {
+      setPayments(pay);
+      setOrdersCount(orders.length);
+      setSellersCount(sellers.length);
+      setPendingProducts(allProducts.filter((p) => !p.isActive).length);
+      setProducts(allProducts);
+      setCategoryNames(Object.fromEntries(cats.map((c) => [c.id, c.name])));
+    });
+  }, [user]);
+
+  if (!user || user.role !== 'Admin') {
     return <Navigate to="/login" replace />;
   }
 
-  const maxGmv = Math.max(...GMV_BY_MONTH.map((m) => m.gmv), 1); // 1 — защита от деления на 0
+  const completed = payments.filter((p) => p.status === 'Completed');
+  const now = Date.now();
+  const gmv30 = completed
+    .filter((p) => now - new Date(p.createdAt).getTime() <= 30 * 24 * 60 * 60 * 1000)
+    .reduce((s, p) => s + p.amount, 0);
+
+  const stats = [
+    { title: 'GMV за 30 днів', value: `${Math.round(gmv30).toLocaleString('uk-UA')} ₴`, note: '', positive: true },
+    { title: 'Замовлень', value: String(ordersCount), note: '', positive: true },
+    { title: 'Продавців', value: String(sellersCount), note: '', positive: true },
+    { title: 'Усього платежів', value: String(payments.length), note: '', positive: true },
+  ];
+
+  const byMonth = new Map<string, number>();
+  completed.forEach((p) => {
+    const d = new Date(p.createdAt);
+    const key = d.toLocaleDateString('uk-UA', { month: 'long' });
+    byMonth.set(key, (byMonth.get(key) ?? 0) + p.amount / 1000);
+  });
+  const gmvByMonth: MonthGmv[] = Array.from(byMonth.entries()).map(([month, gmv]) => ({ month, gmv: Math.round(gmv) }));
+  const maxGmv = Math.max(...gmvByMonth.map((m) => m.gmv), 1);
+
+  const productsByCategory = new Map<string, number>();
+  products.forEach((p) => {
+    const name = (p.categoryId != null ? categoryNames[p.categoryId] : p.categoryName) ?? 'Інші';
+    productsByCategory.set(name, (productsByCategory.get(name) ?? 0) + 1);
+  });
+  const totalProducts = products.length || 1;
+  const categoryShares: CategoryShare[] = Array.from(productsByCategory.entries())
+    .map(([name, count]) => ({ name, percent: Math.round((count / totalProducts) * 100) }))
+    .sort((a, b) => b.percent - a.percent)
+    .slice(0, 6);
+
+  const tasks: Task[] = [
+    { id: 1, title: 'Модерація товарів', subtitle: `${pendingProducts} товарів очікують перевірки`, to: '/admin/moderation' },
+    { id: 2, title: 'Спори', subtitle: 'Функціонал в розробці', to: '/admin/disputes', soon: true },
+    { id: 3, title: 'Продавці', subtitle: `${sellersCount} магазинів зареєстровано`, to: '/admin/sellers' },
+  ];
 
   return (
     <div className={styles.page}>
@@ -104,7 +127,7 @@ export default function AdminDashboardPage() {
             </h1>
 
             <div className={styles.stats}>
-              {STATS.map((s) => (
+              {stats.map((s) => (
                 <div key={s.title} className={styles.statCard}>
                   <span className={styles.statTitle}>{s.title}</span>
                   <span className={styles.statValue}>{s.value}</span>
@@ -117,7 +140,7 @@ export default function AdminDashboardPage() {
               <section className={`${styles.col} ${styles.chartCol}`}>
                 <h2 className={styles.sectionTitle}>GMV по місяцях, ₴</h2>
                 <div className={styles.chart}>
-                  {GMV_BY_MONTH.map((m) => (
+                  {gmvByMonth.map((m) => (
                     <div key={m.month} className={styles.barCol}>
                       <span className={styles.barValue}>{m.gmv}к</span>
                       <div className={styles.barTrack}>
@@ -137,11 +160,11 @@ export default function AdminDashboardPage() {
               <section className={`${styles.col} ${styles.tasksCol}`}>
                 <h2 className={styles.sectionTitle}>Черга завдань</h2>
                 <div className={styles.tasks}>
-                  {TASKS.length === 0 ? (
+                  {tasks.length === 0 ? (
                     <p className={styles.tasksEmpty}>Завдань поки немає.</p>
                   ) : (
                     <ul className={styles.taskList}>
-                      {TASKS.map((t) => {
+                      {tasks.map((t) => {
                         const content = (
                           <>
                             <span className={styles.taskText}>
@@ -174,9 +197,9 @@ export default function AdminDashboardPage() {
             </div>
 
             <section className={styles.categories}>
-              <h2 className={styles.sectionTitle}>Категорії за оборотом</h2>
+              <h2 className={styles.sectionTitle}>Категорії за кількістю товарів</h2>
               <ul className={styles.catList}>
-                {CATEGORIES.map((c) => (
+                {categoryShares.map((c) => (
                   <li key={c.name} className={styles.catRow}>
                     <span className={styles.catName}>{c.name}</span>
                     <div

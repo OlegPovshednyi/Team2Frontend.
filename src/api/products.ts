@@ -11,6 +11,10 @@ export interface CreateProductDto {
   imgUrls?: string[];
 }
 
+export interface UpdateProductDto extends CreateProductDto {
+  isActive: boolean;
+}
+
 export interface ProductSearchResult {
   items: Product[];
   totalCount: number;
@@ -26,6 +30,7 @@ export interface SearchParams {
   maxPrice?: number;
   page?: number;
   pageSize?: number;
+  sellerId?: number;
 }
 
 export const productsApi = {
@@ -47,6 +52,7 @@ export const productsApi = {
     if (params.maxPrice != null) query.set('maxPrice', String(params.maxPrice));
     if (params.page) query.set('page', String(params.page));
     if (params.pageSize) query.set('pageSize', String(params.pageSize));
+    if (params.sellerId) query.set('sellerId', String(params.sellerId));
     const { data } = await apiClient.get<ProductSearchResult>(`/product/search?${query}`);
     return data;
   },
@@ -56,7 +62,7 @@ export const productsApi = {
     return data;
   },
 
-  update: async (id: number, dto: Partial<CreateProductDto>): Promise<Product> => {
+  update: async (id: number, dto: UpdateProductDto): Promise<Product> => {
     const { data } = await apiClient.put<Product>(`/product/${id}`, dto);
     return data;
   },

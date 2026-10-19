@@ -54,7 +54,7 @@ const priceFormat = new Intl.NumberFormat('uk-UA');
 export default function SellerReturnsPage() {
   const { user } = useAuth();
 
-  if (!user || user.role !== 'seller') {
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 

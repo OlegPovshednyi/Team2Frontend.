@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { sellersApi } from './sellers';
 import type {
   AuthResponse,
   LoginDto,
@@ -6,9 +7,6 @@ import type {
   RegisterSellerDto,
   User,
 } from '../types';
-
-// Пока бэка нет, true. Когда бэк будет готов, поменять на false
-const USE_MOCK = true;
 
 function buildUser(res: AuthResponse): User {
   return {
@@ -34,25 +32,27 @@ export const authApi = {
     return { token: data.token, user: buildUser(data) };
   },
 
-  // TODO(бэк): уточнить адрес эндпоинта и формат тела.
-  // Роль "seller" должен выставлять сервер, а не фронт.
   registerSeller: async (
     idToken: string,
     dto: RegisterSellerDto,
   ): Promise<{ token: string; user: User }> => {
-    if (USE_MOCK) {
-      await new Promise((r) => setTimeout(r, 500)); // имитация задержки
-      return {
-        token: 'mock-seller-token',
-        user: { name: dto.shopName, email: 'seller@mock.com', role: 'seller', phone: dto.phone },
-      };
+    const first = await apiClient.post<AuthResponse>('/auth/firebase-login', { idToken });
+    const prevToken = localStorage.getItem('token');
+    localStorage.setItem('token', first.data.token);
+
+    try {
+      await sellersApi.create({
+        name: dto.shopName,
+        description: '',
+        phone: dto.phone,
+        email: first.data.email,
+      });
+    } catch (err) {
+      if (prevToken) localStorage.setItem('token', prevToken); else localStorage.removeItem('token');
+      throw err;
     }
 
-    const { data } = await apiClient.post<AuthResponse>('/auth/register-seller', {
-      idToken,
-      shopName: dto.shopName,
-      phone: dto.phone,
-    });
-    return { token: data.token, user: buildUser(data) };
+    const second = await apiClient.post<AuthResponse>('/auth/firebase-login', { idToken });
+    return { token: second.data.token, user: buildUser(second.data) };
   },
 };

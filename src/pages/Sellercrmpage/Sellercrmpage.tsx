@@ -49,7 +49,7 @@ const initial = (name: string) => name.trim().charAt(0).toUpperCase();
 export default function SellerCrmPage() {
   const { user } = useAuth();
 
-  if (!user || user.role !== 'seller') {
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 

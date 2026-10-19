@@ -7,7 +7,7 @@ import AdminSidebar from '../../components/Adminsidebar/Adminsidebar';
 import styles from './AdminDisputesPage.module.css';
 
 // TODO: поставить false, когда появится бэкенд (или удалить флажок вместе с DEV_USER)
-const DEV_SKIP_AUTH = true;
+const DEV_SKIP_AUTH = false;
 const DEV_USER = { name: 'Тест Адмін', role: 'admin' };
 
 type DisputeStatus = 'open' | 'closed';
@@ -55,7 +55,7 @@ export default function AdminDisputesPage() {
   const [disputes, setDisputes] = useState<Dispute[]>(INITIAL_DISPUTES);
 
   // Пускаем только администратора
-  if (!user || user.role !== 'admin') {
+  if (!user || user.role !== 'Admin') {
     return <Navigate to="/login" replace />;
   }
 

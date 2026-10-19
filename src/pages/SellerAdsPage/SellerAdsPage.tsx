@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
 export default function SellerAdsPage() {
      const user = { name: 'Тест Продавець', role: 'seller' }; // TODO: убрать, когда появится бэкенд
 
-  if (!user || user.role !== 'seller') {
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 

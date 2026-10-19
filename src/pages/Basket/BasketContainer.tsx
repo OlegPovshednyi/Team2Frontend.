@@ -127,17 +127,17 @@ export default function BasketContainer() {
     });
   };
 
-  // if (!isAuthenticated) {
-  //   return (
-  //     <>
-  //       <Header />
-  //       <div style={{ maxWidth: 600, margin: '80px auto', textAlign: 'center' }}>
-  //         <h2>Увійдіть, щоб переглянути кошик</h2>
-  //         <Link to="/login">Увійти</Link>
-  //       </div>
-  //     </>
-  //   );
-  // }
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Header />
+        <div style={{ maxWidth: 600, margin: '80px auto', textAlign: 'center' }}>
+          <h2>Увійдіть, щоб переглянути кошик</h2>
+          <Link to="/login">Увійти</Link>
+        </div>
+      </>
+    );
+  }
 
   return (
     <Basket

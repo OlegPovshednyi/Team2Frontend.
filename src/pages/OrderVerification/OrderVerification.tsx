@@ -16,6 +16,7 @@ export function OrderVerification() {
   const { clearCart } = useCart();
   const state = (location.state ?? {}) as PaymentNavState;
 
+  const [promo, setPromo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [orderDone, setOrderDone] = useState(false);
@@ -26,12 +27,20 @@ export function OrderVerification() {
   const {
     paymentMethodName = 'Банківська карта',
     items = [],
+    itemsCount = 0,
+    goodsTotal = 0,
+    deliveryPrice = 0,
     deliveryLabel = '—',
+    cashback = 0,
     total = 0,
     phone = '',
     address = '',
     comment = '',
   } = state;
+
+  const handleApplyPromo = () => {
+    console.log('promo code:', promo);
+  };
 
   const handleBack = () => navigate('/payment');
 
@@ -161,6 +170,39 @@ export function OrderVerification() {
               </button>
             </div>
           </section>
+
+          <aside className={`${styles.card} ${styles.summary}`}>
+            <h2>Разом</h2>
+
+            <div className={styles.row}>
+              <span>Товари ({itemsCount})</span>
+              <span>{fmt(goodsTotal ?? 0)} {UAH}</span>
+            </div>
+            <div className={styles.row}>
+              <span>Доставка</span>
+              <span>{deliveryPrice && deliveryPrice > 0 ? `${fmt(deliveryPrice)} ${UAH}` : 'безкоштовно'}</span>
+            </div>
+            <div className={`${styles.row} ${styles.rowCashback}`}>
+              <span>Кешбек</span>
+              <span>+ {cashback ?? 0} бонусів</span>
+            </div>
+            <div className={`${styles.row} ${styles.rowTotal}`}>
+              <span>До сплати</span>
+              <span>{fmt(total ?? 0)} {UAH}</span>
+            </div>
+
+            <div className={styles.promo}>
+              <input
+                type="text"
+                placeholder="Промокод"
+                value={promo}
+                onChange={(e) => setPromo(e.target.value)}
+              />
+              <button type="button" onClick={handleApplyPromo}>
+                Ок
+              </button>
+            </div>
+          </aside>
         </div>
       </main>
 

@@ -74,7 +74,7 @@ const LEVEL_CLASS: Record<Level, string> = {
 export default function AdminSecurityPage() {
 //   const { user } = useAuth();
 
-//   if (!user || user.role !== 'admin') {
+//   if (!user || user.role !== 'Admin') {
 //     return <Navigate to="/login" replace />;
 //   }
 

@@ -1,51 +1,26 @@
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import AdminSidebar from '../../components/Adminsidebar/Adminsidebar';
+import { paymentsApi, type Payment } from '../../api/payments';
 import styles from './AdminFinancePage.module.css';
 
-// TODO: поставить false, когда появится бэкенд (или удалить флажок вместе с DEV_USER)
-const DEV_SKIP_AUTH = true;
-const DEV_USER = { name: 'Тест Адмін', role: 'admin' };
-
-interface Stat {
-  title: string;
-  value: string;
-  note: string;
-  positive: boolean;
-}
-
 interface MonthReport {
-  id: number;
-  period: string;     // например: "Вересень 2026"
-  gmv: number;        // в гривнях
-  commission: number;
-  payouts: number;
+  id: string;
+  period: string;
+  gmv: number;
+  count: number;
 }
-
-// TODO(бэк): заменить моки на данные с сервера
-const STATS: Stat[] = [
-  { title: 'Дохід з комісій', value: '414 500 ₴', note: 'вересень', positive: true },
-  { title: 'Виплати продавцям', value: '4 405 000 ₴', note: 'вересень', positive: true },
-  { title: 'Утримано за спори', value: '12 400 ₴', note: '3 кейси', positive: true },
-  { title: 'Середня комісія', value: '8,6%', note: '+0,2 п.п.', positive: true },
-];
-
-const REPORTS: MonthReport[] = [
-  { id: 1, period: 'Вересень 2026', gmv: 4820000, commission: 414500, payouts: 4405500 },
-  { id: 2, period: 'Серпень 2026', gmv: 4210000, commission: 362060, payouts: 3847940 },
-  { id: 3, period: 'Липень 2026', gmv: 3880000, commission: 333680, payouts: 3546320 },
-];
 
 const numberFormat = new Intl.NumberFormat('uk-UA');
 const money = (n: number) => `${numberFormat.format(n)} ₴`;
 
-/** Простая выгрузка в CSV на стороне фронта. TODO(бэк): заменить на файл с сервера */
 function downloadReport(report: MonthReport) {
   const rows = [
-    ['Період', 'GMV, ₴', 'Комісія, ₴', 'Виплати, ₴'],
-    [report.period, report.gmv, report.commission, report.payouts],
+    ['Період', 'GMV, ₴', 'Кількість оплат'],
+    [report.period, report.gmv, report.count],
   ];
   const csv = '\uFEFF' + rows.map((r) => r.join(';')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -58,13 +33,50 @@ function downloadReport(report: MonthReport) {
 }
 
 export default function AdminFinancePage() {
-  const { user: authUser } = useAuth();
-  const user = DEV_SKIP_AUTH ? DEV_USER : authUser;
+  const { user } = useAuth();
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Пускаем только администратора
-  if (!user || user.role !== 'admin') {
+  useEffect(() => {
+    if (!user || user.role !== 'Admin') return;
+    paymentsApi
+      .getAll()
+      .then(setPayments)
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  if (!user || user.role !== 'Admin') {
     return <Navigate to="/login" replace />;
   }
+
+  const completed = payments.filter((p) => p.status === 'Completed');
+  const gmv = completed.reduce((s, p) => s + p.amount, 0);
+  const avgCheck = completed.length ? gmv / completed.length : 0;
+
+  const stats = [
+    { title: 'Загальний оборот (GMV)', value: money(gmv), note: `${completed.length} оплат`, positive: true },
+    { title: 'Середній чек', value: money(avgCheck), note: '', positive: true },
+    { title: 'Усього платежів', value: String(payments.length), note: '', positive: true },
+    { title: 'Неуспішні/в очікуванні', value: String(payments.length - completed.length), note: '', positive: false },
+  ];
+
+  const byMonth = new Map<string, { gmv: number; count: number }>();
+  completed.forEach((p) => {
+    const d = new Date(p.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const entry = byMonth.get(key) ?? { gmv: 0, count: 0 };
+    entry.gmv += p.amount;
+    entry.count += 1;
+    byMonth.set(key, entry);
+  });
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split('-');
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' });
+  };
+  const reports: MonthReport[] = Array.from(byMonth.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, v]) => ({ id: key, period: monthLabel(key), gmv: v.gmv, count: v.count }));
 
   return (
     <div className={styles.page}>
@@ -84,7 +96,7 @@ export default function AdminFinancePage() {
             <h1 className={styles.title}>Комісії та фінанси</h1>
 
             <div className={styles.stats}>
-              {STATS.map((s) => (
+              {stats.map((s) => (
                 <div key={s.title} className={styles.statCard}>
                   <span className={styles.statTitle}>{s.title}</span>
                   <span className={styles.statValue}>{s.value}</span>
@@ -95,11 +107,13 @@ export default function AdminFinancePage() {
 
             <h2 className={styles.sectionTitle}>Звіти</h2>
 
-            {REPORTS.length === 0 ? (
+            {loading ? (
+              <p className={styles.empty}>Завантаження...</p>
+            ) : reports.length === 0 ? (
               <p className={styles.empty}>Звітів поки немає.</p>
             ) : (
               <ul className={styles.list}>
-                {REPORTS.map((r) => (
+                {reports.map((r) => (
                   <li key={r.id} className={styles.card}>
                     <h3 className={styles.cardName}>{r.period}</h3>
                     <dl className={styles.facts}>
@@ -108,12 +122,8 @@ export default function AdminFinancePage() {
                         <dd className={styles.factValue}>{money(r.gmv)}</dd>
                       </div>
                       <div className={styles.fact}>
-                        <dt className={styles.factLabel}>Комісія</dt>
-                        <dd className={styles.factValue}>{money(r.commission)}</dd>
-                      </div>
-                      <div className={styles.fact}>
-                        <dt className={styles.factLabel}>Виплати</dt>
-                        <dd className={styles.factValue}>{money(r.payouts)}</dd>
+                        <dt className={styles.factLabel}>Оплат</dt>
+                        <dd className={styles.factValue}>{r.count}</dd>
                       </div>
                     </dl>
                     <button

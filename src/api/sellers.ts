@@ -49,4 +49,14 @@ export const sellersApi = {
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/seller/${id}`);
   },
+
+  getMine: async (email: string): Promise<SellerDetail | null> => {
+    const all = await apiClient.get<Seller[]>('/seller');
+    const details = await Promise.all(
+      all.data.map((s) =>
+        apiClient.get<SellerDetail>(`/seller/${s.id}/details`).then((r) => r.data).catch(() => null),
+      ),
+    );
+    return details.find((d) => d && d.email === email) ?? null;
+  },
 };

@@ -1,42 +1,62 @@
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './SellerDashboardPage.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SellerSidebar from '../../components/Sellersidebar/Sellersidebar';
+import { sellersApi } from '../../api/sellers';
+import { productsApi } from '../../api/products';
+import { reviewsApi } from '../../api/reviews';
+import type { Product, Review } from '../../types';
 
-// TODO(бэк): заменить моки на данные с сервера
-const STATS = [
-  { title: 'Продажі за 30 днів', value: '184 360 ₴', note: '+12,4% до липня', positive: true },
-  { title: 'Замовлення', value: '128', note: '+8 сьогодні', positive: true },
-  { title: 'Середній чек', value: '1 439 ₴', note: '-3,1%', positive: false },
-  { title: 'Рейтинг магазину', value: '4.8', note: '1 240 відгуків', positive: true },
-];
-
-const WEEK = [
-  { day: 'ПН', value: 52 },
-  { day: 'ВТ', value: 78 },
-  { day: 'СР', value: 105 },
-  { day: 'ЧТ', value: 78 },
-  { day: 'ПТ', value: 52 },
-  { day: 'СБ', value: 125 },
-  { day: 'НД', value: 150 },
-];
-
-const ATTENTION = [
-  { title: '2 нові замовлення', sub: 'Зберіть до 18:00' },
-  { title: '3 товари закінчуються', sub: 'Залишок менше 10 шт' },
-  { title: '1 відгук без відповіді', sub: 'Оцінка 3 ☆' },
-];
+const LOW_STOCK_THRESHOLD = 10;
 
 export default function SellerDashboardPage() {
   const { user } = useAuth();
-  const maxWeek = Math.max(...WEEK.map((w) => w.value), 1); // 1 — защита от деления на 0
+  const [products, setProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
-  // Пускаем только продавца
-  if (!user || user.role !== 'seller') {
+  useEffect(() => {
+    if (!user || user.role !== 'Seller') return;
+    sellersApi.getMine(user.email).then(async (seller) => {
+      if (!seller) return;
+      const search = await productsApi.search({ sellerId: seller.id, pageSize: 200 }).catch(() => ({ items: [] as Product[] }));
+      setProducts(search.items);
+      const perProduct = await Promise.all(search.items.map((p) => reviewsApi.getByProduct(p.id).catch(() => [] as Review[])));
+      setReviews(perProduct.flat());
+    });
+  }, [user]);
+
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
+
+  const ratings = products.filter((p) => p.rating != null).map((p) => p.rating as number);
+  const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : '—';
+  const lowStockCount = products.filter((p) => (p.quantity ?? 0) > 0 && (p.quantity ?? 0) < LOW_STOCK_THRESHOLD).length;
+  const outOfStockCount = products.filter((p) => (p.quantity ?? 0) <= 0).length;
+
+  const STATS = [
+    { title: 'Товарів у каталозі', value: String(products.length), note: '', positive: true },
+    { title: 'Рейтинг магазину', value: avgRating, note: `${reviews.length} відгуків`, positive: true },
+    { title: 'Закінчуються', value: String(lowStockCount), note: `менше ${LOW_STOCK_THRESHOLD} шт`, positive: false },
+    { title: 'Немає в наявності', value: String(outOfStockCount), note: '', positive: false },
+  ];
+
+  const byCategory = new Map<string, number>();
+  products.forEach((p) => {
+    const name = p.categoryName ?? 'Інші';
+    byCategory.set(name, (byCategory.get(name) ?? 0) + 1);
+  });
+  const WEEK = Array.from(byCategory.entries()).map(([day, value]) => ({ day, value }));
+  const maxWeek = Math.max(...WEEK.map((w) => w.value), 1);
+
+  const ATTENTION = [
+    ...(lowStockCount > 0 ? [{ title: `${lowStockCount} товарів закінчуються`, sub: `Залишок менше ${LOW_STOCK_THRESHOLD} шт` }] : []),
+    ...(outOfStockCount > 0 ? [{ title: `${outOfStockCount} товарів немає в наявності`, sub: 'Поповніть залишки' }] : []),
+    ...(reviews.length === 0 ? [{ title: 'Поки немає відгуків', sub: 'Додайте товари, щоб отримати перші відгуки' }] : []),
+  ];
 
   return (
     <div className={styles.page}>
@@ -66,7 +86,7 @@ export default function SellerDashboardPage() {
 
             <div className={styles.bottom}>
               <section className={styles.col}>
-                <h3 className={styles.sectionTitle}>Продажі за тиждень</h3>
+                <h3 className={styles.sectionTitle}>Товари за категоріями</h3>
                 <div className={styles.chart}>
                   {WEEK.map((w) => (
                     <div key={w.day} className={styles.barCol}>

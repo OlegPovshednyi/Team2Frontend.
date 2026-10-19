@@ -63,18 +63,17 @@ export default function Basket({
   const total = goods - discount;
   const isEmpty = cartItems.length === 0;
 
-  // // Проверка входа: неавторизованный не видит ни корзину, ни заглушку
-  // if (!isAuthenticated) {
-  //   return (
-  //     <>
-  //       <Header />
-  //       <div style={{ maxWidth: 600, margin: '80px auto', textAlign: 'center' }}>
-  //         <h2>Увійдіть, щоб переглянути кошик</h2>
-  //         <Link to="/login">Увійти</Link>
-  //       </div>
-  //     </>
-  //   );
-  // }
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Header />
+        <div style={{ maxWidth: 600, margin: '80px auto', textAlign: 'center' }}>
+          <h2>Увійдіть, щоб переглянути кошик</h2>
+          <Link to="/login">Увійти</Link>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

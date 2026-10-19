@@ -1,46 +1,15 @@
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './SellerFinancePage.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SellerSidebar from '../../components/Sellersidebar/Sellersidebar';
+import { ordersApi, type OrderDto } from '../../api/orders';
 
-type Tone = 'green' | 'red';
-type PayoutStatus = 'paid' | 'processing';
-
-interface Stat {
-  title: string;
-  value: string;
-  note: string;
-  tone: Tone;
-}
-
-interface Payout {
-  id: number;
-  period: string;
-  turnover: number;
-  commission: number;
-  toPay: number;
-  status: PayoutStatus;
-}
-
-// TODO(бэк): заменить моки на данные с сервера
-const STATS: Stat[] = [
-  { title: 'До виплати', value: '46 820 ₴', note: 'виплата 06.10', tone: 'green' },
-  { title: 'Комісія платформи', value: '8%', note: '14 736 ₴', tone: 'green' },
-  { title: 'Виплачено за місяць', value: '137 400 ₴', note: '3 транзакції', tone: 'green' },
-  { title: 'Утримання та повернення', value: '3 360 ₴', note: '1 кейс', tone: 'red' },
-];
-
-const PAYOUTS: Payout[] = [
-  { id: 1, period: '01-15.08', turnover: 92400, commission: 7390, toPay: 83060, status: 'paid' },
-  { id: 2, period: '16-31.08', turnover: 91800, commission: 7402, toPay: 84340, status: 'processing' },
-  { id: 3, period: '01-15.07', turnover: 78200, commission: 6240, toPay: 71248, status: 'paid' },
-];
-
-const STATUS_LABEL: Record<PayoutStatus, string> = {
-  paid: 'Виплачено',
-  processing: 'В обробці',
+const STATUS_LABEL: Record<string, string> = {
+  Pending: 'Очікує',
+  Paid: 'Виплачено',
 };
 
 const numberFormat = new Intl.NumberFormat('uk-UA');
@@ -48,10 +17,35 @@ const money = (n: number) => `${numberFormat.format(n)} ₴`;
 
 export default function SellerFinancePage() {
   const { user } = useAuth();
+  const [orders, setOrders] = useState<OrderDto[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!user || user.role !== 'seller') {
+  useEffect(() => {
+    if (!user || user.role !== 'Seller') return;
+    ordersApi
+      .getBySeller()
+      .then(setOrders)
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
+
+  const paid = orders.filter((o) => o.orderStatus === 'Paid');
+  const totalTurnover = paid.reduce((s, o) => s + o.totalAmount, 0);
+  const now = new Date();
+  const thisMonthTurnover = paid
+    .filter((o) => o.createdDate && new Date(o.createdDate).getMonth() === now.getMonth())
+    .reduce((s, o) => s + o.totalAmount, 0);
+
+  const STATS = [
+    { title: 'Загальний оборот', value: money(totalTurnover), note: `${paid.length} замовлень`, tone: 'green' as const },
+    { title: 'Оборот за цей місяць', value: money(thisMonthTurnover), note: '', tone: 'green' as const },
+    { title: 'Усього замовлень', value: String(orders.length), note: '', tone: 'green' as const },
+    { title: 'В очікуванні оплати', value: String(orders.length - paid.length), note: '', tone: 'red' as const },
+  ];
 
   return (
     <div className={styles.page}>
@@ -83,31 +77,37 @@ export default function SellerFinancePage() {
             <div className={styles.tableWrap}>
               <div className={styles.table}>
                 <div className={`${styles.row} ${styles.head}`}>
-                  <span>ПЕРІОД</span>
-                  <span>ОБОРОТ</span>
-                  <span>КОМІСІЯ</span>
-                  <span>ДО ВИПЛАТИ</span>
+                  <span>ЗАМОВЛЕННЯ</span>
+                  <span>ДАТА</span>
+                  <span>СУМА</span>
                   <span>СТАТУС</span>
                 </div>
 
                 <div className={styles.body}>
-                  {PAYOUTS.map((p) => (
-                    <div key={p.id} className={styles.row}>
-                      <span className={styles.cellBold}>{p.period}</span>
-                      <span className={styles.cellBold}>{money(p.turnover)}</span>
-                      <span className={styles.cellBold}>{money(p.commission)}</span>
-                      <span className={styles.cellBold}>{money(p.toPay)}</span>
-                      <span>
-                        <span
-                          className={`${styles.badge} ${
-                            p.status === 'paid' ? styles.badgePaid : styles.badgeProcessing
-                          }`}
-                        >
-                          {STATUS_LABEL[p.status]}
+                  {loading ? (
+                    <p style={{ padding: 16 }}>Завантаження...</p>
+                  ) : orders.length === 0 ? (
+                    <p style={{ padding: 16 }}>Поки немає замовлень з вашими товарами.</p>
+                  ) : (
+                    orders.map((o) => (
+                      <div key={o.id} className={styles.row}>
+                        <span className={styles.cellBold}>#{o.id}</span>
+                        <span className={styles.cellBold}>
+                          {o.createdDate ? new Date(o.createdDate).toLocaleDateString('uk-UA') : '—'}
                         </span>
-                      </span>
-                    </div>
-                  ))}
+                        <span className={styles.cellBold}>{money(o.totalAmount)}</span>
+                        <span>
+                          <span
+                            className={`${styles.badge} ${
+                              o.orderStatus === 'Paid' ? styles.badgePaid : styles.badgeProcessing
+                            }`}
+                          >
+                            {STATUS_LABEL[o.orderStatus] ?? o.orderStatus}
+                          </span>
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

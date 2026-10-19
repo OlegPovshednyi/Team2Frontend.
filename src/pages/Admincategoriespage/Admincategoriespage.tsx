@@ -1,47 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import AdminSidebar from '../../components/Adminsidebar/Adminsidebar';
+import { categoriesApi } from '../../api/categories';
+import { productsApi } from '../../api/products';
 import styles from './AdminCategoriesPage.module.css';
 
-// TODO: поставить false, когда появится бэкенд (или удалить флажок вместе с DEV_USER)
-const DEV_SKIP_AUTH = true;
-const DEV_USER = { name: 'Тест Адмін', role: 'admin' };
-
-const DEFAULT_COMMISSION = 10; // комиссия для новой категории, %
+const DEFAULT_COMMISSION = 10; // комісія для нової категорії, % (локальне поле, бекенд цього не зберігає)
 
 interface Category {
   id: number;
   name: string;
   productsCount: number;
 }
-
-// TODO(бэк): заменить моки на данные с сервера
-const INITIAL_CATEGORIES: Category[] = [
-  { id: 1, name: 'Електроніка', productsCount: 12 },
-  { id: 2, name: 'Дім і кухня', productsCount: 11 },
-  { id: 3, name: 'Одяг і взуття', productsCount: 5 },
-  { id: 4, name: 'Краса і здоров’я', productsCount: 3 },
-  { id: 5, name: 'Спорт і відпочинок', productsCount: 3 },
-  { id: 6, name: 'Дитячі товари', productsCount: 2 },
-  { id: 7, name: 'Зоотовари', productsCount: 2 },
-  { id: 8, name: 'Автотовари', productsCount: 2 },
-];
-
-// Комиссии храним как строки, чтобы поле можно было временно очистить при вводе
-const INITIAL_COMMISSIONS: Record<number, string> = {
-  1: '6',
-  2: '10',
-  3: '12',
-  4: '12',
-  5: '9',
-  6: '10',
-  7: '10',
-  8: '8',
-};
 
 /** 1 товар, 2–4 товари, 5+ товарів */
 function productsLabel(n: number): string {
@@ -55,11 +29,11 @@ function productsLabel(n: number): string {
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 export default function AdminCategoriesPage() {
-  const { user: authUser } = useAuth();
-  const user = DEV_SKIP_AUTH ? DEV_USER : authUser;
+  const { user } = useAuth();
 
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [commissions, setCommissions] = useState<Record<number, string>>(INITIAL_COMMISSIONS);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [commissions, setCommissions] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(true);
 
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -69,13 +43,30 @@ export default function AdminCategoriesPage() {
   const [commMsg, setCommMsg] = useState('');
   const [commErr, setCommErr] = useState('');
 
-  // Пускаем только администратора
-  if (!user || user.role !== 'admin') {
+  useEffect(() => {
+    if (!user || user.role !== 'Admin') return;
+    categoriesApi
+      .getAll()
+      .then(async (list) => {
+        const withCounts = await Promise.all(
+          list.map(async (c) => {
+            const search = await productsApi.search({ categoryId: c.id, pageSize: 1 }).catch(() => null);
+            return { id: c.id, name: c.name, productsCount: search?.totalCount ?? 0 };
+          }),
+        );
+        setCategories(withCounts);
+        setCommissions(Object.fromEntries(withCounts.map((c) => [c.id, String(DEFAULT_COMMISSION)])));
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  if (!user || user.role !== 'Admin') {
     return <Navigate to="/login" replace />;
   }
 
   /* ── Дерево категорий ── */
-  const handleAdd = (e: FormEvent<HTMLFormElement>) => {
+  const handleAdd = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
@@ -83,12 +74,15 @@ export default function AdminCategoriesPage() {
       setTreeError('Категорія з такою назвою вже існує');
       return;
     }
-    // TODO(бэк): создать категорию на сервере и взять id из ответа
-    const id = Date.now();
-    setCategories((list) => [...list, { id, name, productsCount: 0 }]);
-    setCommissions((c) => ({ ...c, [id]: String(DEFAULT_COMMISSION) }));
-    setNewName('');
-    setTreeError('');
+    try {
+      const created = await categoriesApi.create({ name });
+      setCategories((list) => [...list, { id: created.id, name: created.name, productsCount: 0 }]);
+      setCommissions((c) => ({ ...c, [created.id]: String(DEFAULT_COMMISSION) }));
+      setNewName('');
+      setTreeError('');
+    } catch {
+      setTreeError('Не вдалося створити категорію');
+    }
   };
 
   const startEdit = (c: Category) => {
@@ -102,7 +96,7 @@ export default function AdminCategoriesPage() {
     setTreeError('');
   };
 
-  const handleRename = (e: FormEvent<HTMLFormElement>) => {
+  const handleRename = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = draftName.trim();
     if (!name) {
@@ -113,10 +107,15 @@ export default function AdminCategoriesPage() {
       setTreeError('Категорія з такою назвою вже існує');
       return;
     }
-    // TODO(бэк): отправить новое название на сервер
-    setCategories((list) => list.map((c) => (c.id === editingId ? { ...c, name } : c)));
-    setEditingId(null);
-    setTreeError('');
+    if (editingId == null) return;
+    try {
+      await categoriesApi.update(editingId, { name });
+      setCategories((list) => list.map((c) => (c.id === editingId ? { ...c, name } : c)));
+      setEditingId(null);
+      setTreeError('');
+    } catch {
+      setTreeError('Не вдалося оновити категорію');
+    }
   };
 
   /* ── Комиссии ── */

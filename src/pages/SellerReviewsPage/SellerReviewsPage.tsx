@@ -1,38 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './SellerReviewsPage.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SellerSidebar from '../../components/Sellersidebar/Sellersidebar';
+import { sellersApi } from '../../api/sellers';
+import { productsApi } from '../../api/products';
+import { reviewsApi } from '../../api/reviews';
 
 interface SellerReview {
   id: number;
   author: string;
   product: string;
-  rating: number; // 1..5
+  rating: number;
   text: string;
-  reply?: string; // если есть, ответ уже дан
+  reply?: string;
 }
-
-// TODO(бэк): заменить моки на данные с сервера
-const INITIAL_REVIEWS: SellerReview[] = [
-  {
-    id: 1,
-    author: 'Олена К.',
-    product: 'Бездротові навушники BlitzAir',
-    rating: 5,
-    text: 'Шумозаглушення реально працює. Заряд тримає тиждень.',
-    reply: 'Дякуємо за відгук!',
-  },
-  {
-    id: 2,
-    author: 'Ігор М.',
-    product: 'Розумна колонка BlitzHome',
-    rating: 3,
-    text: 'Застосунок не бачить з першого разу.',
-  },
-];
 
 function Stars({ value }: { value: number }) {
   return (
@@ -48,18 +32,40 @@ function Stars({ value }: { value: number }) {
 
 export default function SellerReviewsPage() {
   const { user } = useAuth();
-  const [reviews, setReviews] = useState<SellerReview[]>(INITIAL_REVIEWS);
+  const [reviews, setReviews] = useState<SellerReview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
 
-  if (!user || user.role !== 'seller') {
+  useEffect(() => {
+    if (!user || user.role !== 'Seller') return;
+    sellersApi.getMine(user.email).then(async (seller) => {
+      if (!seller) {
+        setLoading(false);
+        return;
+      }
+      const products = await productsApi.search({ sellerId: seller.id, pageSize: 200 }).catch(() => ({ items: [] }));
+      const perProduct = await Promise.all(
+        products.items.map((p) => reviewsApi.getByProduct(p.id).then((rs) => rs.map((r) => ({ r, productName: p.name }))).catch(() => [])),
+      );
+      const flat = perProduct.flat().map(({ r, productName }) => ({
+        id: r.id,
+        author: `Покупець #${r.userId}`,
+        product: productName,
+        rating: r.rating,
+        text: r.text ?? '',
+      }));
+      setReviews(flat);
+      setLoading(false);
+    });
+  }, [user]);
+
+  if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
 
   const handleReply = (id: number) => {
     const text = (drafts[id] ?? '').trim();
     if (!text) return;
-
-    // TODO(бэк): отправить ответ на сервер, например POST /seller/reviews/:id/reply
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, reply: text } : r)));
     setDrafts((prev) => ({ ...prev, [id]: '' }));
   };
@@ -80,6 +86,8 @@ export default function SellerReviewsPage() {
             <h1 className={styles.title}>Відгуки покупців</h1>
 
             <div className={styles.list}>
+              {loading && <p>Завантаження...</p>}
+              {!loading && reviews.length === 0 && <p>Поки немає відгуків на ваші товари.</p>}
               {reviews.map((r) => (
                 <article key={r.id} className={styles.card}>
                   <div className={styles.head}>

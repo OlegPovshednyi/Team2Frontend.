@@ -100,6 +100,10 @@ export default function AdminIntegrationsPage() {
 
           <main className={styles.main}>
             <h1 className={styles.title}>Інтеграції</h1>
+            <p className={styles.empty}>
+              Це довідковий перелік можливих інтеграцій платформи. Бекенд ще не має системи
+              керування підключеннями, тому статуси нижче — орієнтовні, а не дані в реальному часі.
+            </p>
 
             {GROUPS.map((group) => (
               <section key={group.title} className={styles.group}>

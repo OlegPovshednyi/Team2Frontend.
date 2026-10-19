@@ -134,6 +134,40 @@
   .stats { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Карточки замовлень замість таблиці */
+@media (max-width: 1280px) {
+  .tableWrap { overflow-x: visible; }
+  .table { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .head { display: none; }
+
+  .body { background: none; border: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .body .row {
+    height: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 10px;
+    column-gap: 16px;
+    padding: 16px;
+    background: #fefefe;
+    border: 1px solid #dde5df;
+    border-radius: 16px;
+  }
+
+  .row [data-label] {
+    text-align: left;
+    display: block;
+  }
+  .row [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b786f;
+  }
+}
+
 @media (max-width: 900px) {
   .container { padding: 0 16px; }
   .greenArea { flex-direction: column; }

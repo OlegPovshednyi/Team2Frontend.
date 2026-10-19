@@ -5,6 +5,7 @@ import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import type { PaymentNavState } from '../../types/index';
 import { ordersApi } from '../../api/orders';
+import { paymentsApi } from '../../api/payments';
 import { useCart } from '../../context/CartContext';
 
 const UAH = '₴';
@@ -62,12 +63,20 @@ export function OrderVerification() {
     }
 
     try {
-      await ordersApi.create({
+      const order = await ordersApi.create({
         deliveryAddress: deliveryLabel || address || 'Не вказано',
         phone,
         comment: comment || undefined,
         paymentMethod: paymentMethodId,
       });
+
+      const payment = await paymentsApi.create({
+        orderId: order.id,
+        amount: order.totalAmount,
+        method: paymentMethodId || 'card',
+      });
+      await paymentsApi.process(payment.id);
+
       await clearCart();
       setOrderDone(true);
     } catch {

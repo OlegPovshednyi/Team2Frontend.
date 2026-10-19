@@ -140,11 +140,28 @@
 }
 
 @media (max-width: 900px) {
+  .siteChrome,
+  .breadcrumbs { display: none; }
+
+  .page {
+    background: #f1f9f1;
+    padding: calc(56px + env(safe-area-inset-top, 0px)) 0 calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
   .container { padding: 0 16px; }
-  .greenArea { flex-direction: column; min-height: 0; }
+  .greenArea { flex-direction: column; min-height: 0; gap: 12px; padding: 12px; }
   .title { font-size: 24px; }
 }
 
 @media (max-width: 480px) {
   .stats { grid-template-columns: 1fr; }
+}
+.placeholderNote {
+  background: #fefefe;
+  border: 1px solid #dde5df;
+  border-radius: 16px;
+  padding: 28px;
+  font-size: 17px;
+  color: #6b7a70;
+  line-height: 1.5;
 }

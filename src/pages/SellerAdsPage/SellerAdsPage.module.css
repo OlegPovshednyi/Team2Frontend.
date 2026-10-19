@@ -158,3 +158,12 @@
 @media (max-width: 600px) {
   .cards { grid-template-columns: 1fr; gap: 16px; }
 }
+.placeholderNote {
+  background: #fefefe;
+  border: 1px solid #dde5df;
+  border-radius: 16px;
+  padding: 28px;
+  font-size: 17px;
+  color: #6b7a70;
+  line-height: 1.5;
+}

@@ -1,23 +1,23 @@
+import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './SellerCrmPage.module.css';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import SellerSidebar from '../../components/Sellersidebar/Sellersidebar';
+import { ordersApi } from '../../api/orders';
 
-type Segment = 'regular' | 'active' | 'new' | 'vip' | 'churn';
+type Segment = 'new' | 'active' | 'vip' | 'churn';
 
 interface Customer {
-  id: number;
-  name: string;
+  userId: number;
   ordersCount: number;
-  totalSpent: number;  // сума покупок в гривнях
-  lastOrder: string;   // ISO-дата, напр. '2026-08-26'
+  totalSpent: number;
+  lastOrder?: string;
   segment: Segment;
 }
 
 const SEGMENT_LABEL: Record<Segment, string> = {
-  regular: 'Постійний',
   active: 'Активний',
   new: 'Новий',
   vip: 'VIP',
@@ -25,38 +25,65 @@ const SEGMENT_LABEL: Record<Segment, string> = {
 };
 
 const SEGMENT_CLASS: Record<Segment, string> = {
-  regular: styles.segRegular,
   active: styles.segActive,
   new: styles.segNew,
   vip: styles.segVip,
   churn: styles.segChurn,
 };
 
-// TODO(бэк): заменить моки на данные с сервера
-const CUSTOMERS: Customer[] = [
-  { id: 1, name: 'О. Коваль', ordersCount: 7, totalSpent: 18400, lastOrder: '2026-08-26', segment: 'regular' },
-  { id: 2, name: 'І. Мельник', ordersCount: 3, totalSpent: 5200, lastOrder: '2026-08-26', segment: 'active' },
-  { id: 3, name: 'А. Шевчук', ordersCount: 1, totalSpent: 11990, lastOrder: '2026-08-26', segment: 'new' },
-  { id: 4, name: 'Д. Бондар', ordersCount: 12, totalSpent: 31530, lastOrder: '2026-08-26', segment: 'vip' },
-  { id: 5, name: 'К. Ткач', ordersCount: 2, totalSpent: 3530, lastOrder: '2026-08-26', segment: 'churn' },
-];
+function computeSegment(ordersCount: number, lastOrder?: string): Segment {
+  if (lastOrder) {
+    const daysSince = (Date.now() - new Date(lastOrder).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSince > 60) return 'churn';
+  }
+  if (ordersCount >= 5) return 'vip';
+  if (ordersCount === 1) return 'new';
+  return 'active';
+}
 
 const priceFormat = new Intl.NumberFormat('uk-UA');
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
-const initial = (name: string) => name.trim().charAt(0).toUpperCase();
+const formatDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' }) : '—';
 
 export default function SellerCrmPage() {
   const { user } = useAuth();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || user.role !== 'Seller') return;
+    ordersApi
+      .getBySeller()
+      .then((orders) => {
+        const byBuyer = new Map<number, { ordersCount: number; totalSpent: number; lastOrder?: string }>();
+        for (const o of orders) {
+          if (!o.userId) continue;
+          const entry = byBuyer.get(o.userId) ?? { ordersCount: 0, totalSpent: 0, lastOrder: undefined };
+          entry.ordersCount += 1;
+          entry.totalSpent += o.totalAmount;
+          if (!entry.lastOrder || (o.createdDate && o.createdDate > entry.lastOrder)) {
+            entry.lastOrder = o.createdDate;
+          }
+          byBuyer.set(o.userId, entry);
+        }
+        const list: Customer[] = Array.from(byBuyer.entries())
+          .map(([userId, v]) => ({
+            userId,
+            ordersCount: v.ordersCount,
+            totalSpent: v.totalSpent,
+            lastOrder: v.lastOrder,
+            segment: computeSegment(v.ordersCount, v.lastOrder),
+          }))
+          .sort((a, b) => b.totalSpent - a.totalSpent);
+        setCustomers(list);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [user]);
 
   if (!user || user.role !== 'Seller') {
     return <Navigate to="/login" replace />;
   }
-
-  const handlePromo = (customer: Customer) => {
-    // TODO: отправка промокода клиенту (макета пока нет)
-    void customer;
-  };
 
   return (
     <div className={styles.page}>
@@ -72,8 +99,15 @@ export default function SellerCrmPage() {
 
           <main className={styles.main}>
             <h1 className={styles.title}>CRM: клієнти</h1>
+            <p className={styles.note}>
+              Список розраховано з реальних замовлень. Ім'я покупця недоступне (бекенд не дає
+              продавцю доступ до профілів користувачів), тому клієнти показані за номером.
+              Розсилка промокодів поки не підтримується бекендом.
+            </p>
 
-            {CUSTOMERS.length === 0 ? (
+            {loading ? (
+              <p className={styles.empty}>Завантаження...</p>
+            ) : customers.length === 0 ? (
               <p className={styles.empty}>Клієнтів поки немає. Вони з’являться після перших замовлень.</p>
             ) : (
               <div className={styles.table} role="table" aria-label="Клієнти">
@@ -84,16 +118,15 @@ export default function SellerCrmPage() {
                   <span role="columnheader">Сума</span>
                   <span role="columnheader">Останнє</span>
                   <span role="columnheader">Сегмент</span>
-                  <span className={styles.srOnly} role="columnheader">Дії</span>
                 </div>
 
-                {CUSTOMERS.map((c) => (
-                  <div key={c.id} className={styles.row} role="row">
+                {customers.map((c) => (
+                  <div key={c.userId} className={styles.row} role="row">
                     <div className={styles.cellClient} role="cell">
                       <span className={styles.avatar} aria-hidden="true">
-                        {initial(c.name)}
+                        #{c.userId}
                       </span>
-                      <span className={styles.clientName}>{c.name}</span>
+                      <span className={styles.clientName}>Покупець #{c.userId}</span>
                     </div>
 
                     <div className={`${styles.cell} ${styles.cellOrders}`} role="cell" data-label="Замовлень">
@@ -110,12 +143,6 @@ export default function SellerCrmPage() {
                       <span className={`${styles.segment} ${SEGMENT_CLASS[c.segment]}`}>
                         {SEGMENT_LABEL[c.segment]}
                       </span>
-                    </div>
-
-                    <div className={`${styles.cell} ${styles.cellAction}`} role="cell">
-                      <button type="button" className={styles.promoBtn} onClick={() => handlePromo(c)}>
-                        Надіслати промокод
-                      </button>
                     </div>
                   </div>
                 ))}

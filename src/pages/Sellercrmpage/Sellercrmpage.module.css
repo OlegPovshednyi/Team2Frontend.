@@ -254,3 +254,13 @@
 @media (prefers-reduced-motion: reduce) {
   .promoBtn { transition: none; }
 }
+.note {
+  background: #fefefe;
+  border: 1px solid #dde5df;
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 14px;
+  color: #6b7a70;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}

@@ -91,12 +91,12 @@ export default function SellerFinancePage() {
                   ) : (
                     orders.map((o) => (
                       <div key={o.id} className={styles.row}>
-                        <span className={styles.cellBold}>#{o.id}</span>
-                        <span className={styles.cellBold}>
+                        <span className={styles.cellBold} data-label="Замовлення">#{o.id}</span>
+                        <span className={styles.cellBold} data-label="Дата">
                           {o.createdDate ? new Date(o.createdDate).toLocaleDateString('uk-UA') : '—'}
                         </span>
-                        <span className={styles.cellBold}>{money(o.totalAmount)}</span>
-                        <span>
+                        <span className={styles.cellBold} data-label="Сума">{money(o.totalAmount)}</span>
+                        <span data-label="Статус">
                           <span
                             className={`${styles.badge} ${
                               o.orderStatus === 'Paid' ? styles.badgePaid : styles.badgeProcessing

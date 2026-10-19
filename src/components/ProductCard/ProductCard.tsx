@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StarRating from '../StarRating/StarRating';
 import styles from './ProductCard.module.css';
 import type { Product } from '../../types';
+import { isInCompare, toggleCompare } from '../../utils/compareList';
 
 interface ProductCardProps {
   product: Product;
@@ -9,6 +11,21 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+  const [compared, setCompared] = useState(() => isInCompare(product.id));
+
+  useEffect(() => {
+    const sync = () => setCompared(isInCompare(product.id));
+    window.addEventListener('blitzmall_compare_change', sync);
+    return () => window.removeEventListener('blitzmall_compare_change', sync);
+  }, [product.id]);
+
+  const handleToggleCompare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = toggleCompare(product.id);
+    setCompared(next.includes(product.id));
+  };
+
   return (
     <Link to={`/product/${product.id}`} className={styles.cardLink}>
       <div className={styles.card}>
@@ -19,6 +36,15 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             <div className={styles.image} style={{ background: '#e5e7eb' }} />
           )}
           {product.badge && <span className={styles.badge}>{product.badge}</span>}
+          <button
+            type="button"
+            className={`${styles.compareBtn} ${compared ? styles.compareBtnActive : ''}`}
+            onClick={handleToggleCompare}
+            aria-label={compared ? 'Прибрати з порівняння' : 'Додати до порівняння'}
+            title={compared ? 'Прибрати з порівняння' : 'Додати до порівняння'}
+          >
+            ⚖
+          </button>
         </div>
 
         <div className={styles.body}>

@@ -22,7 +22,7 @@ const MENU: MenuItem[] = [
   { label: 'Фінанси', to: '/seller/finance' },
   { label: 'Реклама', to: '/seller/ads' },
   { label: 'Відгуки', to: '/seller/reviews' },
-  { label: 'API та інтеграції', to: '/seller/api', soon: true },
+  { label: 'API та інтеграції', to: '/seller/api' },
 ];
 
 export default function SellerSidebar() {

@@ -29,6 +29,7 @@ import SellerCrmPage from './pages/Sellercrmpage/Sellercrmpage';
 import SellerAnalyticsPage from './pages/Selleranalyticspage/Selleranalyticspage';
 import SellerFinancePage from './pages/SellerFinancePage/SellerFinancePage';
 import SellerAdsPage from './pages/SellerAdsPage/SellerAdsPage';
+import SellerApiIntegrationsPage from './pages/SellerApiIntegrationsPage/SellerApiIntegrationsPage';
 import SellerReviewsPage from './pages/SellerReviewsPage/SellerReviewsPage';
 import AdminDashboardPage from './pages/Admindashboardpage/Admindashboardpage';
 import AdminUsersPage from './pages/Adminuserspage/Adminuserspage';
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/seller/finance" element={<SellerFinancePage />} />
             <Route path="/seller/ads" element={<SellerAdsPage />} />
             <Route path="/seller/reviews" element={<SellerReviewsPage />} />
+            <Route path="/seller/api" element={<SellerApiIntegrationsPage />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/sellers" element={<AdminSellersPage />} />

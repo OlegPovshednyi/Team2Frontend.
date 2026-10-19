@@ -48,6 +48,31 @@
   text-transform: uppercase;
 }
 
+.compareBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: #323f37;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.compareBtn:hover {
+  background: #ffffff;
+}
+.compareBtnActive {
+  background: #23753f;
+  color: #ffffff;
+}
+
 .body {
   padding: 16px;
   flex: 1;

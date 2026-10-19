@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { CATEGORIES } from '../../data/categories';
 import type { Product } from '../../types';
+import { loadCompareIds, toggleCompare } from '../../utils/compareList';
 import styles from './CatalogPage.module.css';
 
 const PAGE_SIZE = 12;
@@ -57,6 +58,13 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
+  const [compared, setCompared] = useState<Set<number>>(() => new Set(loadCompareIds()));
+
+  const handleToggleCompare = (e: React.MouseEvent, productId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCompared(new Set(toggleCompare(productId)));
+  };
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const q = searchParams.get('q') || '';
@@ -457,6 +465,15 @@ export default function CatalogPage() {
                         ) : (
                           <div className={styles.imgPlaceholder}>📦</div>
                         )}
+                        <button
+                          type="button"
+                          className={`${styles.compareBtn} ${compared.has(product.id) ? styles.compareBtnActive : ''}`}
+                          onClick={(e) => handleToggleCompare(e, product.id)}
+                          aria-label={compared.has(product.id) ? 'Прибрати з порівняння' : 'Додати до порівняння'}
+                          title={compared.has(product.id) ? 'Прибрати з порівняння' : 'Додати до порівняння'}
+                        >
+                          ⚖
+                        </button>
                       </div>
                       <div className={styles.info}>
                         <span className={styles.category}>{product.categoryName}</span>

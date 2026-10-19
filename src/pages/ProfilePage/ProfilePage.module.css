@@ -208,6 +208,23 @@
   cursor: not-allowed;
 }
 
+.logoutBtn {
+  align-self: flex-start;
+  width: 180px;
+  height: 65px;
+  border: 1px solid #23753f;
+  border-radius: 15px;
+  background: #fff;
+  color: #23753f;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.logoutBtn:hover {
+  background: #f1f9f1;
+}
+
 .saveMsg {
   font-size: 16px;
   font-weight: 600;
@@ -445,7 +462,373 @@
   .inner {
     padding: 0 16px 40px;
   }
-  .saveBtn {
+  .saveBtn,
+  .logoutBtn {
     width: 100%;
+  }
+}
+
+/* ───────── Загальні елементи нових розділів (Повернення/Порівняння/Відгуки/Підписки/Купони/Картки/Сповіщення) ───────── */
+
+.sectionH1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #323f37;
+  margin: 0 0 24px;
+}
+
+.placeholderSub {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+  margin-top: 8px;
+}
+
+/* ── Повернення ── */
+.returnsWrap { width: 100%; }
+
+.returnForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.returnFormRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.returnTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dde5df;
+  border-radius: 15px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+.returnMsg {
+  font-size: 15px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 8px;
+}
+
+/* ── Порівняння ── */
+.compareWrap { width: 100%; }
+.compareHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.compareCount {
+  font-size: 18px;
+  font-weight: 500;
+  color: #5a6a60;
+  margin: 4px 0 0;
+}
+.compareActions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.diffToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.clearCompareBtn {
+  background: #ffffff;
+  border: 2px solid #256c43;
+  color: #256c43;
+  border-radius: 14px;
+  padding: 14px 24px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.clearCompareBtn:hover { background: #f1f9f1; }
+
+.compareEmpty {
+  background: #ffffff;
+  border: 1px solid #d6e6da;
+  border-radius: 20px;
+  padding: 80px 40px;
+  text-align: center;
+}
+.compareEmptyIcon { font-size: 56px; color: #256c43; display: block; }
+.compareEmptyCount { font-size: 24px; font-weight: 700; margin: 16px 0 8px; }
+
+.compareTable {
+  background: #ffffff;
+  border: 1px solid #d6e6da;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.compareProductsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 24px;
+  padding: 24px;
+}
+.compareProductCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.compareRemoveBtn {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #dde5df;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.compareProductImg {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.compareProductName {
+  color: #323f37;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 16px;
+}
+.compareProductPrice { font-weight: 700; font-size: 18px; margin: 0; }
+
+.compareGroupHead {
+  background: #f1f9f1;
+  color: #256c43;
+  font-size: 18px;
+  font-weight: 800;
+  padding: 14px 24px;
+}
+.compareRow {
+  display: grid;
+  grid-template-columns: 260px repeat(auto-fit, minmax(0, 1fr));
+  gap: 24px;
+  padding: 18px 24px;
+  background: #eaf7e3;
+  border-top: 1px solid #d6e6da;
+}
+.compareRow:nth-of-type(even) { background: #ffffff; }
+.compareRowLabel { font-weight: 600; color: #323f37; }
+.compareRowValue { font-weight: 500; color: #323f37; }
+
+/* ── Мої відгуки ── */
+.reviewsWrap { width: 100%; }
+.reviewsTabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.reviewsTabBtn {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #323f37;
+}
+.reviewsTabActive {
+  background: #256c43;
+  border-color: #256c43;
+  color: #ffffff;
+}
+.pendingReviewCard,
+.publishedReviewCard {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pendingReviewHead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.reviewProductImg {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.reviewProductName {
+  color: #323f37;
+  font-weight: 700;
+  font-size: 18px;
+  text-decoration: none;
+}
+.reviewDate { font-size: 14px; color: #8a9790; margin: 4px 0 0; }
+.reviewText { font-size: 16px; color: #323f37; margin: 0; }
+.starsInput { display: flex; gap: 4px; }
+.starBtn {
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.editReviewBtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #256c43;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── Підписки ── */
+.subsWrap { width: 100%; }
+
+/* ── Купони і бонуси ── */
+.couponsWrap { width: 100%; }
+.couponsBonusGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+.bonusStatsRow {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.bonusStatCard {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 15px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+}
+.bonusStatLabel { font-size: 18px; font-weight: 600; color: #5a6a60; }
+.bonusStatValue { font-size: 24px; font-weight: 700; color: #323f37; }
+.bonusStatSub { font-size: 16px; font-weight: 700; color: #23753f; }
+.spendBtnSmall {
+  align-self: flex-start;
+  background: #23753f;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.accrualList { display: flex; flex-direction: column; gap: 10px; }
+.accrualRow {
+  display: flex;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.levelCard {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 15px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.levelCardName { font-size: 24px; font-weight: 800; }
+.levelCashback { font-size: 18px; font-weight: 700; color: #23753f; }
+.levelsTable {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 15px;
+  padding: 20px;
+  margin-top: 24px;
+}
+.levelsRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 18px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f9f1;
+}
+.levelsRow:last-child { border-bottom: none; }
+
+/* ── Мої картки ── */
+.cardsWrap { width: 100%; }
+.addCardTile {
+  width: 100%;
+  background: #fafcfa;
+  border: 1.5px dashed #b9c6be;
+  border-radius: 16px;
+  padding: 24px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f7a3e;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+.addCardTile:hover { background: #f1f9f1; }
+.securityNote {
+  background: #ffffff;
+  border: 1px solid #dde5df;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 24px;
+}
+.securityNote strong { font-size: 15px; }
+.securityNote p { font-size: 13px; color: #6b7570; margin: 0; }
+
+@media (max-width: 900px) {
+  .returnFormRow,
+  .couponsBonusGrid {
+    grid-template-columns: 1fr;
+  }
+  .compareProductsRow {
+    grid-template-columns: 1fr;
+  }
+  .compareRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }

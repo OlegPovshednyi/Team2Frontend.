@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import { useAuth } from '../../context/AuthContext';
 import { profileApi, type ProfileDto } from '../../api/profile';
 import { ordersApi } from '../../api/orders';
 import { productsApi } from '../../api/products';
-import type { OrderDto, Product } from '../../types';
+import { reviewsApi } from '../../api/reviews';
+import type { OrderDto, Product, Review } from '../../types';
+import { loadCompareIds, removeFromCompare, clearCompare } from '../../utils/compareList';
 import styles from './ProfilePage.module.css';
 
 const FAVORITES_KEY = 'blitzmall_favorites';
@@ -29,6 +31,20 @@ const STATUS_LABEL: Record<string, string> = {
   Cancelled: 'Скасовано',
 };
 
+const RETURN_REASONS = [
+  'Не підійшов розмір',
+  'Товар не відповідає опису',
+  'Передумав',
+  'Товар пошкоджено',
+  'Інше',
+];
+
+const LEVELS = [
+  { name: 'Бронзовий', from: 0, cashback: 2 },
+  { name: 'Срібний', from: 5000, cashback: 3 },
+  { name: 'Золотий', from: 15000, cashback: 5 },
+];
+
 type Tab =
   | 'profile'
   | 'orders'
@@ -37,8 +53,6 @@ type Tab =
   | 'reviews'
   | 'subscriptions'
   | 'coupons'
-  | 'bonuses'
-  | 'addresses'
   | 'cards'
   | 'notifications'
   | 'favorites';
@@ -50,26 +64,51 @@ const NAV_ITEMS: { id: Tab; label: string }[] = [
   { id: 'compare', label: 'Порівняння' },
   { id: 'reviews', label: 'Мої відгуки' },
   { id: 'subscriptions', label: 'Підписки' },
-  { id: 'coupons', label: 'Купони' },
-  { id: 'bonuses', label: 'Мої бонуси' },
-  { id: 'addresses', label: 'Адреси доставки' },
+  { id: 'coupons', label: 'Купони і бонуси' },
   { id: 'cards', label: 'Мої картки' },
   { id: 'notifications', label: 'Сповіщення' },
 ];
 
-const NOT_IMPLEMENTED: Record<string, string> = {
-  returns: 'У вас ще немає повернень.',
-  compare: 'Список товарів для порівняння порожній.',
-  reviews: 'Ви ще не залишали відгуків.',
-  subscriptions: 'У вас немає активних підписок.',
-  coupons: 'Немає доступних купонів.',
-  addresses: 'Немає збережених адрес доставки.',
-  cards: 'Немає збережених банківських карток.',
-  notifications: 'Немає нових сповіщень.',
-};
+const priceFormat = new Intl.NumberFormat('uk-UA');
+const formatDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+
+interface PendingReviewItem {
+  productId: number;
+  product: Product;
+}
+
+interface PublishedReviewItem {
+  review: Review;
+  product: Product | null;
+}
+
+function ClickableStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className={styles.starsInput}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          className={styles.starBtn}
+          onClick={() => onChange(star)}
+          aria-label={`${star} з 5`}
+        >
+          <span style={{ color: star <= value ? '#f5a623' : '#d1d5db' }}>★</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, updateUser } = useAuth();
+  const { user, isAuthenticated, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const [tab, setTab] = useState<Tab>('profile');
   const [profile, setProfile] = useState<ProfileDto | null>(null);
@@ -87,6 +126,28 @@ export default function ProfilePage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
 
   const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+
+  const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [compareProducts, setCompareProducts] = useState<Product[]>([]);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [diffOnly, setDiffOnly] = useState(false);
+
+  const [returnOrderId, setReturnOrderId] = useState('');
+  const [returnReason, setReturnReason] = useState(RETURN_REASONS[0]);
+  const [returnComment, setReturnComment] = useState('');
+  const [returnMsg, setReturnMsg] = useState('');
+
+  const [allReviews, setAllReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [publishedReviews, setPublishedReviews] = useState<PublishedReviewItem[]>([]);
+  const [pendingReviews, setPendingReviews] = useState<PendingReviewItem[]>([]);
+  const [reviewsSubTab, setReviewsSubTab] = useState<'published' | 'pending'>('published');
+  const [ratingDraft, setRatingDraft] = useState<Record<number, number>>({});
+  const [textDraft, setTextDraft] = useState<Record<number, string>>({});
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+  const [savingReview, setSavingReview] = useState<number | null>(null);
+
+  const [cardAddMsg, setCardAddMsg] = useState('');
 
   const loadProfile = useCallback(() => {
     profileApi
@@ -124,6 +185,65 @@ export default function ProfilePage() {
     });
   }, [tab]);
 
+  useEffect(() => {
+    if (tab !== 'compare') return;
+    const sync = () => setCompareIds(loadCompareIds());
+    sync();
+    window.addEventListener('blitzmall_compare_change', sync);
+    return () => window.removeEventListener('blitzmall_compare_change', sync);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'compare') return;
+    if (compareIds.length === 0) {
+      setCompareProducts([]);
+      return;
+    }
+    setCompareLoading(true);
+    Promise.all(compareIds.map((id) => productsApi.getById(id).catch(() => null)))
+      .then((results) => setCompareProducts(results.filter((p): p is Product => !!p)))
+      .finally(() => setCompareLoading(false));
+  }, [tab, compareIds]);
+
+  useEffect(() => {
+    if (!isAuthenticated || tab !== 'reviews') return;
+    setReviewsLoading(true);
+    reviewsApi
+      .getAll()
+      .then(setAllReviews)
+      .catch(() => setAllReviews([]))
+      .finally(() => setReviewsLoading(false));
+  }, [isAuthenticated, tab]);
+
+  useEffect(() => {
+    if (!profile || tab !== 'reviews') return;
+
+    const myReviews = allReviews.filter((r) => r.userId === profile.id);
+    const reviewedProductIds = new Set(myReviews.map((r) => r.productId));
+
+    const purchasedProductIds = new Set<number>();
+    orders.forEach((o) => {
+      if (o.orderStatus === 'Cancelled') return;
+      o.items.forEach((i) => purchasedProductIds.add(i.productId));
+    });
+
+    const pendingIds = [...purchasedProductIds].filter((id) => !reviewedProductIds.has(id));
+
+    Promise.all(
+      myReviews.map(async (review) => ({
+        review,
+        product: await productsApi.getById(review.productId).catch(() => null),
+      }))
+    ).then(setPublishedReviews);
+
+    Promise.all(
+      pendingIds.map(async (productId) => {
+        const product = await productsApi.getById(productId).catch(() => null);
+        return product ? { productId, product } : null;
+      })
+    ).then((results) => setPendingReviews(results.filter((r): r is PendingReviewItem => !!r)));
+  }, [profile, allReviews, orders, tab]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -144,6 +264,57 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReturnSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setReturnMsg(
+      'Функція оформлення повернень поки не підключена до бекенду — заявку поки неможливо надіслати.'
+    );
+  };
+
+  const handleSubmitReview = async (productId: number) => {
+    const rating = ratingDraft[productId];
+    if (!rating) return;
+    setSavingReview(productId);
+    try {
+      await reviewsApi.create({ productId, rating, text: textDraft[productId] || undefined });
+      const refreshed = await reviewsApi.getAll();
+      setAllReviews(refreshed);
+      setRatingDraft((prev) => ({ ...prev, [productId]: 0 }));
+      setTextDraft((prev) => ({ ...prev, [productId]: '' }));
+    } catch {
+      // лишаємо форму відкритою, щоб користувач міг спробувати ще раз
+    } finally {
+      setSavingReview(null);
+    }
+  };
+
+  const handleUpdateReview = async (reviewId: number, productId: number) => {
+    const rating = ratingDraft[productId];
+    setSavingReview(productId);
+    try {
+      await reviewsApi.update(reviewId, {
+        rating: rating || undefined,
+        text: textDraft[productId],
+      });
+      const refreshed = await reviewsApi.getAll();
+      setAllReviews(refreshed);
+      setEditingReviewId(null);
+    } catch {
+      // лишаємо форму відкритою для повторної спроби
+    } finally {
+      setSavingReview(null);
+    }
+  };
+
+  const handleRemoveCompare = (productId: number) => {
+    setCompareIds(removeFromCompare(productId));
+  };
+
+  const handleClearCompare = () => {
+    clearCompare();
+    setCompareIds([]);
   };
 
   if (!isAuthenticated || !user) {
@@ -168,6 +339,28 @@ export default function ProfilePage() {
     .toUpperCase();
 
   const activeOrdersCount = orders.filter((o) => o.orderStatus !== 'Cancelled').length;
+
+  const paidOrdersThisYear = orders.filter(
+    (o) =>
+      o.orderStatus === 'Paid' &&
+      o.createdDate &&
+      new Date(o.createdDate).getFullYear() === new Date().getFullYear()
+  );
+  const accruedThisYear = paidOrdersThisYear.reduce((sum, o) => sum + Math.floor(o.totalAmount * 0.02), 0);
+
+  const compareRows = compareProducts.length
+    ? [
+        { label: 'Наявність', get: (p: Product) => ((p.quantity ?? 0) > 0 ? 'В наявності' : 'Під замовлення') },
+        { label: 'Категорія', get: (p: Product) => p.categoryName ?? '—' },
+        { label: 'Бренд', get: (p: Product) => p.brandName ?? '—' },
+        { label: 'Рейтинг', get: (p: Product) => (p.rating ? `${p.rating.toFixed(1)} / 5` : '—') },
+        { label: 'Відгуків', get: (p: Product) => String(p.reviewCount ?? 0) },
+      ].filter((row) => {
+        if (!diffOnly) return true;
+        const values = compareProducts.map((p) => row.get(p));
+        return new Set(values).size > 1;
+      })
+    : [];
 
   return (
     <div className={styles.page}>
@@ -252,9 +445,12 @@ export default function ProfilePage() {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 24, flexWrap: 'wrap' }}>
                           <button type="submit" className={styles.saveBtn} disabled={saving}>
                             {saving ? 'Збереження...' : 'Зберегти зміни'}
+                          </button>
+                          <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
+                            Вийти
                           </button>
                           {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
                           {saveErr && <span className={styles.saveErr}>{saveErr}</span>}
@@ -273,7 +469,7 @@ export default function ProfilePage() {
                         />
                       </div>
                       <p className={styles.loyaltyHint}>{profile?.nextLevelHint ?? ''}</p>
-                      <button type="button" className={styles.spendBtn} onClick={() => setTab('bonuses')}>
+                      <button type="button" className={styles.spendBtn} onClick={() => setTab('coupons')}>
                         Витратити
                       </button>
                     </div>
@@ -289,8 +485,8 @@ export default function ProfilePage() {
                       <span className={styles.statValue}>{favoriteProducts.length} товари</span>
                     </button>
                     <button type="button" className={styles.statCard} onClick={() => setTab('coupons')}>
-                      <span>Купони</span>
-                      <span className={styles.statValue}>0 доступні</span>
+                      <span>Бонуси</span>
+                      <span className={styles.statValue}>{profile?.bonuses ?? 0} доступно</span>
                     </button>
                   </div>
                 </>
@@ -322,6 +518,377 @@ export default function ProfilePage() {
                 </div>
               )}
 
+              {tab === 'returns' && (
+                <div className={styles.returnsWrap}>
+                  <h1 className={styles.sectionH1}>Повернення та обміни</h1>
+
+                  <div className={styles.placeholder} style={{ marginBottom: 24 }}>
+                    У вас ще немає заявок на повернення.
+                  </div>
+
+                  <h2 className={styles.sectionH1} style={{ fontSize: 24, marginBottom: 16 }}>
+                    Створити заявку
+                  </h2>
+
+                  <form onSubmit={handleReturnSubmit} className={styles.returnForm}>
+                    <div className={styles.returnFormRow}>
+                      <div className={styles.field}>
+                        <label className={styles.fieldLabel}>Замовлення</label>
+                        <select
+                          className={styles.fieldInput}
+                          value={returnOrderId}
+                          onChange={(e) => setReturnOrderId(e.target.value)}
+                        >
+                          <option value="">Оберіть замовлення</option>
+                          {orders.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              #{o.id} · {o.totalAmount.toLocaleString('uk-UA')} ₴
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.fieldLabel}>Причина</label>
+                        <select
+                          className={styles.fieldInput}
+                          value={returnReason}
+                          onChange={(e) => setReturnReason(e.target.value)}
+                        >
+                          {RETURN_REASONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>Коментар</label>
+                      <textarea
+                        className={styles.returnTextarea}
+                        value={returnComment}
+                        onChange={(e) => setReturnComment(e.target.value)}
+                        placeholder="Опишіть проблему"
+                        rows={4}
+                      />
+                    </div>
+
+                    <button type="submit" className={styles.saveBtn} disabled={!returnOrderId}>
+                      Надіслати заявку
+                    </button>
+                    {returnMsg && <p className={styles.returnMsg}>{returnMsg}</p>}
+                  </form>
+                </div>
+              )}
+
+              {tab === 'compare' && (
+                <div className={styles.compareWrap}>
+                  <div className={styles.compareHead}>
+                    <div>
+                      <h1 className={styles.sectionH1}>Порівняння товарів</h1>
+                      <p className={styles.compareCount}>{compareProducts.length} товарів</p>
+                    </div>
+                    {compareProducts.length > 0 && (
+                      <div className={styles.compareActions}>
+                        <label className={styles.diffToggle}>
+                          <input type="checkbox" checked={diffOnly} onChange={(e) => setDiffOnly(e.target.checked)} />
+                          Лише відмінності
+                        </label>
+                        <button type="button" className={styles.clearCompareBtn} onClick={handleClearCompare}>
+                          Очистити список
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {compareLoading ? (
+                    <div className={styles.placeholder}>Завантаження...</div>
+                  ) : compareProducts.length === 0 ? (
+                    <div className={styles.compareEmpty}>
+                      <span className={styles.compareEmptyIcon}>⚖</span>
+                      <p className={styles.compareEmptyCount}>0 товарів</p>
+                      <p className={styles.placeholderSub}>
+                        Додайте товари до порівняння натиснувши іконку ⚖ на картці товару в каталозі.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className={styles.compareTable}>
+                      <div className={styles.compareProductsRow}>
+                        {compareProducts.map((p) => (
+                          <div key={p.id} className={styles.compareProductCell}>
+                            <button
+                              type="button"
+                              className={styles.compareRemoveBtn}
+                              onClick={() => handleRemoveCompare(p.id)}
+                              aria-label="Прибрати з порівняння"
+                            >
+                              ×
+                            </button>
+                            {p.imageUrl && <img src={p.imageUrl} alt={p.name} className={styles.compareProductImg} />}
+                            <Link to={`/product/${p.id}`} className={styles.compareProductName}>
+                              {p.name}
+                            </Link>
+                            <p className={styles.compareProductPrice}>{priceFormat.format(p.price)} ₴</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className={styles.compareGroupHead}>Основні характеристики</div>
+                      {compareRows.map((row) => (
+                        <div key={row.label} className={styles.compareRow}>
+                          <span className={styles.compareRowLabel}>{row.label}</span>
+                          {compareProducts.map((p) => (
+                            <span key={p.id} className={styles.compareRowValue}>
+                              {row.get(p)}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tab === 'reviews' && (
+                <div className={styles.reviewsWrap}>
+                  <h1 className={styles.sectionH1}>Мої відгуки</h1>
+
+                  <div className={styles.reviewsTabs}>
+                    <button
+                      type="button"
+                      className={`${styles.reviewsTabBtn} ${reviewsSubTab === 'published' ? styles.reviewsTabActive : ''}`}
+                      onClick={() => setReviewsSubTab('published')}
+                    >
+                      Опубліковані {publishedReviews.length}
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.reviewsTabBtn} ${reviewsSubTab === 'pending' ? styles.reviewsTabActive : ''}`}
+                      onClick={() => setReviewsSubTab('pending')}
+                    >
+                      Очікують {pendingReviews.length}
+                    </button>
+                  </div>
+
+                  {reviewsLoading ? (
+                    <div className={styles.placeholder}>Завантаження...</div>
+                  ) : reviewsSubTab === 'pending' ? (
+                    pendingReviews.length === 0 ? (
+                      <div className={styles.placeholder}>Усі куплені товари вже оцінено.</div>
+                    ) : (
+                      pendingReviews.map(({ productId, product }) => (
+                        <div key={productId} className={styles.pendingReviewCard}>
+                          <div className={styles.pendingReviewHead}>
+                            {product.imageUrl && (
+                              <img src={product.imageUrl} alt={product.name} className={styles.reviewProductImg} />
+                            )}
+                            <Link to={`/product/${productId}`} className={styles.reviewProductName}>
+                              {product.name}
+                            </Link>
+                          </div>
+                          <ClickableStars
+                            value={ratingDraft[productId] ?? 0}
+                            onChange={(v) => setRatingDraft((prev) => ({ ...prev, [productId]: v }))}
+                          />
+                          <textarea
+                            className={styles.returnTextarea}
+                            placeholder="Поділіться враженням про товар (необов'язково)"
+                            value={textDraft[productId] ?? ''}
+                            onChange={(e) => setTextDraft((prev) => ({ ...prev, [productId]: e.target.value }))}
+                            rows={2}
+                          />
+                          <button
+                            type="button"
+                            className={styles.saveBtn}
+                            style={{ width: 'auto', height: 44, fontSize: 16 }}
+                            disabled={!ratingDraft[productId] || savingReview === productId}
+                            onClick={() => handleSubmitReview(productId)}
+                          >
+                            {savingReview === productId ? 'Збереження...' : 'Оцінити'}
+                          </button>
+                        </div>
+                      ))
+                    )
+                  ) : publishedReviews.length === 0 ? (
+                    <div className={styles.placeholder}>Ви ще не залишали відгуків.</div>
+                  ) : (
+                    publishedReviews.map(({ review, product }) => (
+                      <div key={review.id} className={styles.publishedReviewCard}>
+                        <div className={styles.pendingReviewHead}>
+                          {product?.imageUrl && (
+                            <img src={product.imageUrl} alt={product.name} className={styles.reviewProductImg} />
+                          )}
+                          <div>
+                            <Link to={`/product/${review.productId}`} className={styles.reviewProductName}>
+                              {product?.name ?? `Товар #${review.productId}`}
+                            </Link>
+                            <p className={styles.reviewDate}>{formatDate(review.createdDate)}</p>
+                          </div>
+                        </div>
+
+                        {editingReviewId === review.id ? (
+                          <>
+                            <ClickableStars
+                              value={ratingDraft[review.productId] ?? review.rating}
+                              onChange={(v) => setRatingDraft((prev) => ({ ...prev, [review.productId]: v }))}
+                            />
+                            <textarea
+                              className={styles.returnTextarea}
+                              value={textDraft[review.productId] ?? review.text ?? ''}
+                              onChange={(e) =>
+                                setTextDraft((prev) => ({ ...prev, [review.productId]: e.target.value }))
+                              }
+                              rows={2}
+                            />
+                            <button
+                              type="button"
+                              className={styles.saveBtn}
+                              style={{ width: 'auto', height: 44, fontSize: 16 }}
+                              disabled={savingReview === review.productId}
+                              onClick={() => handleUpdateReview(review.id, review.productId)}
+                            >
+                              {savingReview === review.productId ? 'Збереження...' : 'Зберегти'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <ClickableStars value={review.rating} onChange={() => undefined} />
+                            {review.text && <p className={styles.reviewText}>{review.text}</p>}
+                            <button
+                              type="button"
+                              className={styles.editReviewBtn}
+                              onClick={() => {
+                                setEditingReviewId(review.id);
+                                setRatingDraft((prev) => ({ ...prev, [review.productId]: review.rating }));
+                                setTextDraft((prev) => ({ ...prev, [review.productId]: review.text ?? '' }));
+                              }}
+                            >
+                              ✎ Редагувати
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {tab === 'subscriptions' && (
+                <div className={styles.subsWrap}>
+                  <h1 className={styles.sectionH1}>Мої підписки</h1>
+                  <div className={styles.placeholder}>
+                    Підписки на магазини поки не підключені до бекенду — ця функція ще в розробці.
+                  </div>
+                </div>
+              )}
+
+              {tab === 'coupons' && (
+                <div className={styles.couponsWrap}>
+                  <h1 className={styles.sectionH1}>Мої купони</h1>
+                  <div className={styles.placeholder} style={{ marginBottom: 32 }}>
+                    У вас ще немає персональних купонів. Генерація купонів поки не підключена до бекенду.
+                  </div>
+
+                  <div className={styles.couponsBonusGrid}>
+                    <div>
+                      <h2 className={styles.sectionH1} style={{ fontSize: 24, marginBottom: 16 }}>
+                        Мої бонуси
+                      </h2>
+                      <div className={styles.bonusStatsRow}>
+                        <div className={styles.bonusStatCard}>
+                          <span className={styles.bonusStatValue}>{profile?.bonuses ?? 0} бонусів</span>
+                          <button type="button" className={styles.spendBtnSmall}>
+                            Витратити
+                          </button>
+                        </div>
+                        <div className={styles.bonusStatCard}>
+                          <span className={styles.bonusStatLabel}>Нараховано за рік</span>
+                          <span className={styles.bonusStatValue}>{priceFormat.format(accruedThisYear)}</span>
+                          <span className={styles.bonusStatSub}>≈ {priceFormat.format(accruedThisYear)} ₴</span>
+                        </div>
+                      </div>
+
+                      <h2 className={styles.sectionH1} style={{ fontSize: 24, margin: '24px 0 16px' }}>
+                        Історія нарахувань
+                      </h2>
+                      {paidOrdersThisYear.length === 0 ? (
+                        <div className={styles.placeholder}>Ще немає нарахувань.</div>
+                      ) : (
+                        <div className={styles.accrualList}>
+                          {paidOrdersThisYear.map((o) => (
+                            <div key={o.id} className={styles.accrualRow}>
+                              <span>Замовлення BM-{o.id}</span>
+                              <span>
+                                + {Math.floor(o.totalAmount * 0.02)} {formatDate(o.createdDate)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className={styles.levelCard}>
+                        <span className={styles.bonusStatLabel}>Рівень</span>
+                        <span className={styles.levelCardName}>{profile?.level ?? 'Бронзовий'}</span>
+                        <span className={styles.levelCashback}>кешбек {LEVELS.find((l) => l.name === profile?.level)?.cashback ?? 2}%</span>
+                      </div>
+                      <div className={styles.progressTrack} style={{ margin: '16px 0 8px' }}>
+                        <div className={styles.progressFill} style={{ width: `${profile?.levelProgressPercent ?? 0}%` }} />
+                      </div>
+                      <p className={styles.loyaltyHint}>{profile?.nextLevelHint ?? ''}</p>
+
+                      <div className={styles.levelsTable}>
+                        <h3 className={styles.sectionH1} style={{ fontSize: 26, marginBottom: 16 }}>
+                          Рівні
+                        </h3>
+                        {LEVELS.map((lvl) => (
+                          <div key={lvl.name} className={styles.levelsRow}>
+                            <span>{lvl.name}</span>
+                            <span>
+                              від {priceFormat.format(lvl.from)} ₴ {lvl.cashback}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'cards' && (
+                <div className={styles.cardsWrap}>
+                  <h1 className={styles.sectionH1}>Мої картки</h1>
+                  <div className={styles.placeholder} style={{ marginBottom: 20 }}>
+                    У вас ще немає збережених карток. Збереження карток поки не підтримується бекендом — дані
+                    картки вводяться заново під час кожної оплати.
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.addCardTile}
+                    onClick={() => setCardAddMsg('Збереження карток поки не підтримується бекендом.')}
+                  >
+                    + Додати нову картку
+                  </button>
+                  {cardAddMsg && <p className={styles.returnMsg}>{cardAddMsg}</p>}
+
+                  <div className={styles.securityNote}>
+                    <strong>Ваші дані в безпеці</strong>
+                    <p>Не зберігаємо повні номери карток і CVV — платежі захищені 3-D Secure.</p>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'notifications' && (
+                <div>
+                  <h1 className={styles.sectionH1}>Мої сповіщення</h1>
+                  <div className={styles.placeholder}>
+                    У вас ще немає сповіщень. Система сповіщень поки не підключена до бекенду.
+                  </div>
+                </div>
+              )}
+
               {tab === 'favorites' && (
                 <div className={styles.favGrid}>
                   {favoriteProducts.length === 0 ? (
@@ -340,26 +907,7 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {tab === 'bonuses' && (
-                <div className={styles.loyaltyCard} style={{ width: '100%', flex: 'none' }}>
-                  <h3 className={styles.loyaltyTitle}>{profile?.level ?? 'Бронзовий'} рівень</h3>
-                  <p className={styles.loyaltyBonuses}>{profile?.bonuses ?? 0} бонусів</p>
-                  <p className={styles.loyaltyCashback}>
-                    Кешбек 2% нараховується з кожного оплаченого замовлення.
-                  </p>
-                  <div className={styles.progressTrack}>
-                    <div
-                      className={styles.progressFill}
-                      style={{ width: `${profile?.levelProgressPercent ?? 0}%` }}
-                    />
-                  </div>
-                  <p className={styles.loyaltyHint}>{profile?.nextLevelHint ?? ''}</p>
-                </div>
-              )}
-
               {loading && tab === 'profile' && <div className={styles.placeholder}>Завантаження профілю...</div>}
-
-              {NOT_IMPLEMENTED[tab] && <div className={styles.placeholder}>{NOT_IMPLEMENTED[tab]}</div>}
             </div>
           </div>
         </div>
